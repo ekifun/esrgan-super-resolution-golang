@@ -27,7 +27,7 @@ if [ ! -f "go.mod" ]; then
   echo "📄 Initializing go.mod..."
   go mod init producer-server
   go get github.com/gorilla/mux
-  go get github.com/go-redis/redis/v9
+  go get github.com/redis/go-redis/v9
   go get github.com/segmentio/kafka-go
 else
   echo "🔍 go.mod already exists. Skipping init."
