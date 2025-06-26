@@ -20,9 +20,10 @@ else
   echo "✅ Go is already installed: $(go version)"
 fi
 
-# 🔧 2. Initialize go.mod if not present
+# 📁 2. Enter producer-server
 cd producer-server
 
+# 🛠️ 3. Auto-init go.mod if missing
 if [ ! -f "go.mod" ]; then
   echo "📄 Initializing go.mod..."
   go mod init producer-server
@@ -33,13 +34,25 @@ else
   echo "🔍 go.mod already exists. Skipping init."
 fi
 
-# 🔄 3. Sync and tidy dependencies
+# 🔄 4. Replace bad Redis import paths in source files
+echo "🔧 Fixing Redis import paths in Go source..."
+find . -type f -name "*.go" -exec sed -i 's|github.com/go-redis/redis/v9|github.com/redis/go-redis/v9|g' {} +
+
+# 🧹 5. Clean up bad go.mod line (optional safety)
+sed -i '/github.com\/go-redis\/redis\/v9/d' go.mod
+sed -i '/github.com\/go-redis\/redis\/v9/d' go.sum || true
+
+# 📦 6. Add correct Redis module
+go get github.com/redis/go-redis/v9
+
+# 🔄 7. Finalize dependencies
 echo "🔄 Running go mod tidy..."
 go mod tidy
+
 cd ..
 
-# 🐳 4. Docker Compose build and up
-echo "🐳 Building and deploying with Docker Compose..."
+# 🐳 8. Docker Compose deployment
+echo "🐳 Rebuilding and starting Docker Compose..."
 docker compose down --remove-orphans
 docker compose build
 docker compose up -d
