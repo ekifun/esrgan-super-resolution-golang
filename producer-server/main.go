@@ -2,14 +2,14 @@ package main
 
 import (
 	"context"
-    "encoding/json"
-    "log"
-    "net/http"
-    "os"
+	"encoding/json"
+	"log"
+	"net/http"
+	"os"
 
-    "github.com/gorilla/mux"
-    "github.com/redis/go-redis/v9"
-    "github.com/segmentio/kafka-go"
+	"github.com/gorilla/mux"
+	"github.com/redis/go-redis/v9"
+	"github.com/segmentio/kafka-go"
 )
 
 func getEnv(key, fallback string) string {
@@ -20,13 +20,13 @@ func getEnv(key, fallback string) string {
 }
 
 var (
-	ctx                  = context.Background()
-	redisClient          *redis.Client
-	kafkaWriter          *kafka.Writer
-	processingTopicsKey  = "processingTopics"
-	processedTopicsKey   = "processedTopics"
-	kafkaTopic           = "media-transcoding"
-	serverPort           = "3000"
+	ctx                 = context.Background()
+	redisClient         *redis.Client
+	kafkaWriter         *kafka.Writer
+	processingTopicsKey = "processingTopics"
+	processedTopicsKey  = "processedTopics"
+	kafkaTopic          = "media-transcoding"
+	serverPort          = getEnv("PORT", "3000")
 )
 
 // Payload sent by user
@@ -61,16 +61,18 @@ func main() {
 
 	router.HandleFunc("/submit-topic", submitTopicHandler).Methods("POST")
 	router.HandleFunc("/get-status", getStatusHandler).Methods("GET")
+	router.HandleFunc("/healthz", healthCheckHandler).Methods("GET")
 
-	// Serve static files from the /public directory
+	// Serve static files from ./public
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 
 	log.Printf("🚀 Producer server running on http://localhost:%s\n", serverPort)
 	log.Fatal(http.ListenAndServe(":"+serverPort, router))
 }
 
-func healthCheck(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Producer service is running."))
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("✅ Producer service is running"))
 }
 
 func submitTopicHandler(w http.ResponseWriter, r *http.Request) {
@@ -79,11 +81,16 @@ func submitTopicHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	log.Printf("API to accept task: topicName=%s, imageURL=%s\n", payload.TopicName, payload.ImageURL)
+	log.Printf("📨 Received task: topicName=%s, imageURL=%s\n", payload.TopicName, payload.ImageURL)
 
-	messageBytes, _ := json.Marshal(payload)
-	err := kafkaWriter.WriteMessages(ctx, kafka.Message{Value: messageBytes})
+	messageBytes, err := json.Marshal(payload)
 	if err != nil {
+		log.Printf("❌ JSON marshal error: %v", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := kafkaWriter.WriteMessages(ctx, kafka.Message{Value: messageBytes}); err != nil {
 		log.Printf("❌ Kafka send error: %v", err)
 		http.Error(w, "Error submitting task", http.StatusInternalServerError)
 		return
@@ -91,7 +98,7 @@ func submitTopicHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message":   "Task submitted successfully",
+		"message":   "✅ Task submitted successfully",
 		"topicName": payload.TopicName,
 		"imageURL":  payload.ImageURL,
 	})
