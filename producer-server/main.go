@@ -1,18 +1,15 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"log"
-	"net/http"
-	"os"
+    "encoding/json"
+    "log"
+    "net/http"
 
-	"github.com/go-redis/redis/v9"
-	"github.com/gorilla/mux"
-	kafka "github.com/segmentio/kafka-go"
-	"net/http"
+    "github.com/gorilla/mux"
+    "github.com/redis/go-redis/v9"
+    "github.com/segmentio/kafka-go"
 )
+
 
 var (
 	ctx                  = context.Background()
