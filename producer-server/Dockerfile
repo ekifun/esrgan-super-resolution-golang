@@ -1,34 +1,33 @@
-# Use official Golang image as the builder
-FROM golang:1.22 as builder
+# Use debian:bullseye base with Go installed manually to match runtime glibc
+FROM debian:bullseye as builder
 
-# Set working directory inside container
-WORKDIR /app
+# Install Go 1.22.3 manually
+ENV GO_VERSION=1.22.3
+RUN apt-get update && apt-get install -y wget git ca-certificates build-essential \
+    && wget https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz \
+    && tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz \
+    && rm go${GO_VERSION}.linux-amd64.tar.gz
 
-# Copy Go module files and download dependencies
-COPY go.mod go.sum ./
-RUN go mod download
-
-# Copy the entire source code
-COPY . .
-
-# Build the Go binary
-RUN go build -o producer-server
-
-# Start a new lightweight image
-FROM debian:bullseye-slim
-
-# Install SSL certs for HTTPS communication
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+ENV PATH="/usr/local/go/bin:$PATH"
 
 # Set working directory
 WORKDIR /app
 
-# Copy binary from builder
+# Copy Go files and build
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -o producer-server
+
+# Final image: debian:bullseye-slim (same glibc as builder)
+FROM debian:bullseye-slim
+
+# Install SSL certs
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
 COPY --from=builder /app/producer-server .
 COPY --from=builder /app/public ./public
 
-# Expose the port the app runs on
 EXPOSE 3000
-
-# Run the binary
 CMD ["./producer-server"]
