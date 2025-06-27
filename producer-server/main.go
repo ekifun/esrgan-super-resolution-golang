@@ -50,10 +50,12 @@ func main() {
 
 	// Set up router
 	router := mux.NewRouter()
-	// Serve static files from the /public directory
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
+
 	router.HandleFunc("/submit-topic", submitTopicHandler).Methods("POST")
 	router.HandleFunc("/get-status", getStatusHandler).Methods("GET")
+
+	// Serve static files from the /public directory
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 
 	log.Printf("🚀 Producer server running on http://localhost:%s\n", serverPort)
 	log.Fatal(http.ListenAndServe(":"+serverPort, router))
