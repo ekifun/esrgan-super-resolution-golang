@@ -16,12 +16,11 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
-    command:
-      - bash
-      - -c
-      - |
-        /opt/kafka/bin/kafka-storage.sh format -t $${CLUSTER_ID} -c /etc/kafka/kafka.properties && \
-        /etc/confluent/docker/run
+      command: >
+        bash -c "
+          /usr/bin/kafka-storage format --ignore-formatted --cluster-id=my-cluster-id-123 -c /etc/kafka/kafka.properties &&
+          /etc/confluent/docker/run
+        "
 
   redis:
     image: redis:alpine
