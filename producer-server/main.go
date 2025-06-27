@@ -5,12 +5,19 @@ import (
     "encoding/json"
     "log"
     "net/http"
+    "os"
 
     "github.com/gorilla/mux"
     "github.com/redis/go-redis/v9"
     "github.com/segmentio/kafka-go"
 )
 
+func getEnv(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
 
 var (
 	ctx                  = context.Background()
@@ -19,8 +26,8 @@ var (
 	processingTopicsKey  = "processingTopics"
 	processedTopicsKey   = "processedTopics"
 	kafkaTopic           = "media-transcoding"
-	kafkaBroker          = "kafka:9092"
-	redisHost            = "redis:6379"
+	kafkaBroker = getEnv("KAFKA_BROKER", "kafka:9092")
+	redisHost   = getEnv("REDIS_HOST", "redis:6379")
 	serverPort           = "3000"
 )
 

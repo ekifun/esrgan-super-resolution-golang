@@ -25,3 +25,6 @@ services:
     depends_on:
       - kafka
       - redis
+    environment:
+      - KAFKA_BROKER=kafka:9092
+      - REDIS_HOST=redis:6379
