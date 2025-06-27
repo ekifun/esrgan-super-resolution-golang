@@ -1,11 +1,12 @@
 version: '3.8'
 
 services:
-  kafka:
+    kafka:
     image: confluentinc/cp-kafka:7.5.0
     ports:
       - "9092:9092"
     environment:
+      CLUSTER_ID: 17e14d48-0cb0-48d4-a2a7-39f28d5f0ecd
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
