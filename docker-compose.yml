@@ -6,7 +6,6 @@ services:
     ports:
       - "9092:9092"
     environment:
-      CLUSTER_ID: 17e14d48-0cb0-48d4-a2a7-39f28d5f0ecd
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
@@ -16,11 +15,11 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
-      command: >
-        bash -c "
-          /usr/bin/kafka-storage format --ignore-formatted --cluster-id=17e14d48-0cb0-48d4-a2a7-39f28d5f0ecd -c /etc/kafka/kafka.properties &&
-          /etc/confluent/docker/run
-        "
+    command: >
+      bash -c "
+        /usr/bin/kafka-storage format --ignore-formatted --cluster-id=17e14d48-0cb0-48d4-a2a7-39f28d5f0ecd -c /etc/kafka/kafka.properties &&
+        /etc/confluent/docker/run
+      "
 
   redis:
     image: redis:alpine
