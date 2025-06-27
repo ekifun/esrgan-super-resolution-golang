@@ -26,8 +26,6 @@ var (
 	processingTopicsKey  = "processingTopics"
 	processedTopicsKey   = "processedTopics"
 	kafkaTopic           = "media-transcoding"
-	kafkaBroker = getEnv("KAFKA_BROKER", "kafka:9092")
-	redisHost   = getEnv("REDIS_HOST", "redis:6379")
 	serverPort           = "3000"
 )
 
@@ -38,6 +36,9 @@ type TaskPayload struct {
 }
 
 func main() {
+	kafkaBroker := getEnv("KAFKA_BROKER", "kafka:9092")
+	redisHost := getEnv("REDIS_HOST", "redis:6379")
+
 	// Init Redis
 	redisClient = redis.NewClient(&redis.Options{
 		Addr: redisHost,
