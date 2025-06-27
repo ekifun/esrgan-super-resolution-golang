@@ -6,7 +6,7 @@ services:
     ports:
       - "9092:9092"
     environment:
-      CLUSTER_ID: my-cluster-id-123
+      CLUSTER_ID: 17e14d48-0cb0-48d4-a2a7-39f28d5f0ecd
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
@@ -18,7 +18,7 @@ services:
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       command: >
         bash -c "
-          /usr/bin/kafka-storage format --ignore-formatted --cluster-id=my-cluster-id-123 -c /etc/kafka/kafka.properties &&
+          /usr/bin/kafka-storage format --ignore-formatted --cluster-id=17e14d48-0cb0-48d4-a2a7-39f28d5f0ecd -c /etc/kafka/kafka.properties &&
           /etc/confluent/docker/run
         "
 
