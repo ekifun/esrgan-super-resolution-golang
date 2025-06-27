@@ -24,6 +24,8 @@ FROM debian:bullseye-slim
 
 # Install SSL certs
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+# Add this in the final stage before CMD
+RUN apt-get update && apt-get install -y netcat
 
 WORKDIR /app
 COPY --from=builder /app/producer-server .
