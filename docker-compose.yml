@@ -50,7 +50,7 @@ services:
       - PORT=5001
       - KAFKA_BROKER=kafka:9092
       - REDIS_HOST=redis:6379
-      - ESRGAN_ENGINE_URL=http://esrgan-engine:5000
+      - ESRGAN_ENGINE_URL=http://esrgan-engine:7001
     depends_on:
       - kafka
       - redis
@@ -60,7 +60,12 @@ services:
   esrgan-engine:
     build: ./esrgan-engine
     ports:
-      - "5000:5000"
+      - "7001:7001"
     environment:
-      - PORT=5000
+      - PORT=7001
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7001/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
