@@ -53,6 +53,5 @@ services:
     depends_on:
       - kafka
       - redis
-      - esrgan
     restart: unless-stopped
 
