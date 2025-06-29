@@ -45,34 +45,19 @@ else
   echo "✅ Docker Compose is already installed: $(docker compose version)"
 fi
 
-# 4. Enter service dir and init Go module if needed
+# 4. Setup Go modules for producer-server
+echo "🔧 Setting up Go modules in producer-server..."
 cd producer-server
-
 if [ ! -f "go.mod" ]; then
-  echo "📄 Initializing go.mod..."
+  echo "📄 Initializing go.mod for producer-server..."
   go mod init producer-server
-  go get github.com/gorilla/mux
-  go get github.com/redis/go-redis/v9
-  go get github.com/segmentio/kafka-go
-else
-  echo "🔍 go.mod already exists. Skipping init."
 fi
 
-# 5. Fix Redis import paths
-echo "🔧 Fixing Redis import paths in Go source..."
+go get github.com/gorilla/mux
+go get github.com/redis/go-redis/v9
+go get github.com/segmentio/kafka-go
+
+# Fix any legacy Redis paths
 find . -type f -name "*.go" -exec sed -i 's|github.com/go-redis/redis/v9|github.com/redis/go-redis/v9|g' {} +
 sed -i '/github.com\/go-redis\/redis\/v9/d' go.mod || true
-sed -i '/github.com\/go-redis\/redis\/v9/d' go.sum || true
-go get github.com/redis/go-redis/v9
-go mod tidy
-
-cd ..
-
-# 6. Start services
-echo "🚢 Building and deploying Docker Compose services..."
-docker compose down --remove-orphans
-docker compose build
-docker compose up -d
-
-echo "🚀 Deployment complete!"
-echo "🌐 Access the app at http://localhost:8080"
+sed -i '/github.com\/go-redis\/redis\/v9/d' go.s
