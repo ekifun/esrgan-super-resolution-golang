@@ -45,41 +45,34 @@ else
   echo "✅ Docker Compose is already installed: $(docker compose version)"
 fi
 
-# 4. Setup Go modules for producer-server
-echo "🔧 Setting up Go modules in producer-server..."
-cd producer-server
-if [ ! -f "go.mod" ]; then
-  echo "📄 Initializing go.mod for producer-server..."
-  go mod init producer-server
-fi
+# 4. Fix Redis import paths and setup Go modules for both services
+fix_redis_imports() {
+  local service_dir=$1
+  echo "🔧 Setting up Go modules in $service_dir..."
+  cd "$service_dir"
 
-go get github.com/gorilla/mux
-go get github.com/redis/go-redis/v9
-go get github.com/segmentio/kafka-go
+  if [ ! -f "go.mod" ]; then
+    echo "📄 Initializing go.mod for $service_dir..."
+    go mod init "$service_dir"
+  fi
 
-# Fix any legacy Redis paths
-find . -type f -name "*.go" -exec sed -i 's|github.com/go-redis/redis/v9|github.com/redis/go-redis/v9|g' {} +
-sed -i '/github.com\/go-redis\/redis\/v9/d' go.mod || true
-sed -i '/github.com\/go-redis\/redis\/v9/d' go.sum || true
-go get github.com/redis/go-redis/v9
-go mod tidy
-cd ..
+  go get github.com/gorilla/mux || true
+  go get github.com/segmentio/kafka-go || true
+  go get github.com/redis/go-redis/v9 || true
 
-# 5. Setup Go modules for consumer-server
-echo "🔧 Setting up Go modules in consumer-server..."
-cd consumer-server
-if [ ! -f "go.mod" ]; then
-  echo "📄 Initializing go.mod for consumer-server..."
-  go mod init consumer-server
-fi
+  # Replace old Redis path and clean up go.mod/go.sum
+  find . -type f -name "*.go" -exec sed -i 's|github.com/go-redis/redis/v9|github.com/redis/go-redis/v9|g' {} +
+  sed -i '/github.com\/go-redis\/redis\/v9/d' go.mod || true
+  sed -i '/github.com\/go-redis\/redis\/v9/d' go.sum || true
 
-go get github.com/redis/go-redis/v9
-go get github.com/segmentio/kafka-go
+  go mod tidy
+  cd ..
+}
 
-go mod tidy
-cd ..
+fix_redis_imports "producer-server"
+fix_redis_imports "consumer-server"
 
-# 6. Build and deploy all services
+# 5. Build and deploy all services
 echo "🚢 Building and deploying Docker Compose services..."
 docker compose down --remove-orphans
 docker compose build
