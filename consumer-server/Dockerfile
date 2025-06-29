@@ -25,9 +25,6 @@ WORKDIR /app
 # Copy binary from builder stage
 COPY --from=builder /app/consumer-server .
 
-# Copy static frontend files (optional)
-COPY ./public ./public
-
 # Set environment variables (can also be done via docker-compose)
 ENV PORT=5001 \
     REDIS_HOST=redis:6379 \

@@ -61,7 +61,6 @@ func main() {
 
 	// Serve frontend and status endpoint
 	router := mux.NewRouter()
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 	router.HandleFunc("/get-status", getStatusHandler).Methods("GET")
 
 	port := getEnv("PORT", "5001")
