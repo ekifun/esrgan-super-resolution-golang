@@ -57,17 +57,3 @@ services:
       - esrgan
     restart: unless-stopped
 
-  esrgan:
-    build:
-      context: ./esrgan-engine
-      dockerfile: Dockerfile
-    ports:
-      - "7001:7001"
-    volumes:
-      - ./uploads:/app/uploads
-    environment:
-      - PORT=7001
-      - UPLOAD_DIR=/app/uploads
-    depends_on:
-      - redis
-    restart: unless-stopped
