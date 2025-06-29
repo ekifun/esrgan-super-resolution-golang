@@ -23,7 +23,7 @@ var (
 	processedTopicsKey   = "processedTopics"
 	pubSubChannel        = "task_completed"
 	kafkaGroupID         = "transcoding-group"
-	esrganURL := "http://esrgan-engine:7001/create_topic"
+	esrganServerURL      = "http://esrgan-engine:7001" // update if needed
 )
 
 type TaskPayload struct {
