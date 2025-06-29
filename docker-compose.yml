@@ -50,7 +50,6 @@ services:
       - PORT=5001
       - KAFKA_BROKER=kafka:9092
       - REDIS_HOST=redis:6379
-      - ESRGAN_SERVER=http://esrgan:7001
     depends_on:
       - kafka
       - redis
