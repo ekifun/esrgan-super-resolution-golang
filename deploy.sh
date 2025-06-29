@@ -60,4 +60,30 @@ go get github.com/segmentio/kafka-go
 # Fix any legacy Redis paths
 find . -type f -name "*.go" -exec sed -i 's|github.com/go-redis/redis/v9|github.com/redis/go-redis/v9|g' {} +
 sed -i '/github.com\/go-redis\/redis\/v9/d' go.mod || true
-sed -i '/github.com\/go-redis\/redis\/v9/d' go.s
+sed -i '/github.com\/go-redis\/redis\/v9/d' go.sum || true
+go get github.com/redis/go-redis/v9
+go mod tidy
+cd ..
+
+# 5. Setup Go modules for consumer-server
+echo "🔧 Setting up Go modules in consumer-server..."
+cd consumer-server
+if [ ! -f "go.mod" ]; then
+  echo "📄 Initializing go.mod for consumer-server..."
+  go mod init consumer-server
+fi
+
+go get github.com/redis/go-redis/v9
+go get github.com/segmentio/kafka-go
+
+go mod tidy
+cd ..
+
+# 6. Build and deploy all services
+echo "🚢 Building and deploying Docker Compose services..."
+docker compose down --remove-orphans
+docker compose build
+docker compose up -d
+
+echo "🚀 Deployment complete!"
+echo "🌐 Access the app at http://localhost:8080"
