@@ -49,8 +49,8 @@ function Dashboard() {
       {processedTopics.map((topic, i) => (
         <tr key={i}>
           <td>{topic.name}</td>
-          <td><a href={topic.imageURL} target="_blank">原图</a></td>
-          <td><a href={topic.upscaledURL} target="_blank">Upscaled图</a></td>
+          <td><a href={topic.imageURL} target="_blank" rel="noreferrer">View</a></td>
+          <td><a href={topic.upscaledURL} target="_blank" rel="noreferrer">View</a></td>
         </tr>
       ))}
       </ul>
