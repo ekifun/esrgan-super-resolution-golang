@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-function App() {
+function Dashboard() {
   const [processedTopics, setProcessedTopics] = useState([]);
   const [processingTopics, setProcessingTopics] = useState([]);
   const [topicName, setTopicName] = useState('');
@@ -82,4 +82,4 @@ function App() {
   );
 }
 
-export default App;
+export default Dashboard;
