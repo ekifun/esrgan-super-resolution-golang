@@ -87,15 +87,32 @@ def process_image(image_path, topic_id):
     output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))
     output = (output * 255.0).round()
 
-    # ✅ Save upscaled result
-    output_path = os.path.join(RESULT_DIR, f"{topic_id}_upscaled.png")
+    output_filename = f"{topic_id}_upscaled.png"
+    output_path = os.path.join(RESULT_DIR, output_filename)
     cv2.imwrite(output_path, output.astype(np.uint8))
+
+    upscaled_url = f"http://{os.getenv('HOST', 'localhost')}:{PORT}/{RESULT_DIR}/{output_filename}"
 
     topics[topic_id]["status"] = "completed"
     topics[topic_id]["resultPath"] = output_path
     logging.info(f"[{topic_id}] ✅ Upscaled image saved to: {output_path}")
 
-    # 🔔 Publish to Redis channel so consumer can track completion
+    # ✅ Save to Redis processed:<topic_name>
+    try:
+        topic_data = topics.get(topic_id)
+        if topic_data:
+            processed_key = f"processed:{topic_data['topicName']}"
+            redis_value = {
+                "name": topic_data["topicName"],
+                "imageURL": topic_data["imageURL"],
+                "upscaledURL": upscaled_url
+            }
+            redis_client.set(processed_key, json.dumps(redis_value))
+            logging.info(f"[{topic_id}] 💾 Saved processed topic metadata to Redis key: {processed_key}")
+    except Exception as e:
+        logging.error(f"[{topic_id}] ❌ Failed to write to Redis: {e}")
+
+    # 🔔 Publish to Redis channel for consumer
     message = json.dumps({
         "topic_id": topic_id,
         "result": output_path

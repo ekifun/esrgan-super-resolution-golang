@@ -46,9 +46,13 @@ function Dashboard() {
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
       <h1>Processed Topics</h1>
       <ul>
-        {processedTopics.map((topic, i) => (
-          <li key={i}>{topic.name}</li>
-        ))}
+      {processedTopics.map((topic, i) => (
+        <tr key={i}>
+          <td>{topic.name}</td>
+          <td><a href={topic.imageURL} target="_blank">原图</a></td>
+          <td><a href={topic.upscaledURL} target="_blank">Upscaled图</a></td>
+        </tr>
+      ))}
       </ul>
 
       <h1>Processing Topics</h1>

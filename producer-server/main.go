@@ -105,7 +105,7 @@ func submitTopicHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getStatusHandler(w http.ResponseWriter, r *http.Request) {
-	processed, err := redisClient.LRange(ctx, processedTopicsKey, 0, -1).Result()
+	processedNames, err := redisClient.LRange(ctx, processedTopicsKey, 0, -1).Result()
 	if err != nil {
 		log.Printf("❌ Redis error (processed): %v", err)
 		http.Error(w, "Error fetching processed tasks", http.StatusInternalServerError)
@@ -120,13 +120,18 @@ func getStatusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	processedList := []map[string]string{}
-	for _, topicStr := range processed {
-		var obj map[string]string
-		if err := json.Unmarshal([]byte(topicStr), &obj); err == nil {
-			processedList = append(processedList, obj)
-		} else {
-			processedList = append(processedList, map[string]string{"name": topicStr})
+	for _, topicName := range processedNames {
+		key := "processed:" + topicName
+		val, err := redisClient.Get(ctx, key).Result()
+		if err == nil {
+			var obj map[string]string
+			if err := json.Unmarshal([]byte(val), &obj); err == nil {
+				processedList = append(processedList, obj)
+				continue
+			}
 		}
+		// fallback if not found or not JSON
+		processedList = append(processedList, map[string]string{"name": topicName})
 	}
 
 	processingList := []map[string]string{}
@@ -143,3 +148,4 @@ func getStatusHandler(w http.ResponseWriter, r *http.Request) {
 		"processing": processingList,
 	})
 }
+
