@@ -66,6 +66,14 @@ def process_image(image_path, topic_id):
     logging.info(f"[{topic_id}] ▶️ Processing image: {image_path}")
     topics[topic_id] = {"status": "processing", "progress": 0}
 
+    topic = topics.get(topic_id, {})
+
+    if not topic:
+        logging.warning(f"[{topic_id}] ⚠️ No topic metadata found for result enrichment")
+
+    topic_name = topic.get("topicName", f"topic_{topic_id}")
+    image_url = topic.get("imageURL", "")
+
     time.sleep(2)  # Simulated delay
 
     img = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -92,34 +100,33 @@ def process_image(image_path, topic_id):
     output_path = os.path.join(RESULT_DIR, output_filename)
     cv2.imwrite(output_path, output.astype(np.uint8))
 
-    upscaled_url = f"http://{os.getenv('HOST', 'localhost')}:{PORT}/{RESULT_DIR}/{output_filename}"
+    # Generate accessible URL
+    host = os.getenv('HOST', 'localhost')
+    upscaled_url = f"http://{host}:{PORT}/results/{output_filename}"
 
     topics[topic_id]["status"] = "completed"
     topics[topic_id]["resultPath"] = output_path
     logging.info(f"[{topic_id}] ✅ Upscaled image saved to: {output_path}")
 
-    # ✅ Save to Redis processed:<topic_name>
+    # ✅ Save to Redis list
     try:
-        topic_data = topics.get(topic_id)
-        if topic_data:
-            processed_key = f"processed:{topic_data['topicName']}"
-            redis_value = {
-                "name": topic_data["topicName"],
-                "imageURL": topic_data["imageURL"],
-                "upscaledURL": upscaled_url
-            }
-            redis_client.set(processed_key, json.dumps(redis_value))
-            logging.info(f"[{topic_id}] 💾 Saved processed topic metadata to Redis key: {processed_key}")
+        redis_value = {
+            "name": topic_name,
+            "imageURL": image_url,
+            "upscaledURL": upscaled_url
+        }
+        redis_client.rpush(PROCESSED_TOPICS_KEY, json.dumps(redis_value))
+        logging.info(f"[{topic_id}] 💾 Appended processed topic to Redis key: {PROCESSED_TOPICS_KEY}")
     except Exception as e:
         logging.error(f"[{topic_id}] ❌ Failed to write to Redis: {e}")
 
     # 🔔 Publish to Redis channel for consumer
-    message = json.dumps({
-        "topic_id": topic_id,
-        "result": output_path
-    })
-    redis_client.publish(PUB_SUB_CHANNEL, message)
-    logging.info(f"[{topic_id}] 📡 Published task completion to Redis channel '{PUB_SUB_CHANNEL}'")
+    try:
+        message = json.dumps(redis_value)
+        redis_client.publish(PUB_SUB_CHANNEL, message)
+        logging.info(f"[{topic_id}] 📡 Published task completion to Redis channel '{PUB_SUB_CHANNEL}'")
+    except Exception as e:
+        logging.error(f"[{topic_id}] ❌ Failed to publish Redis message: {e}")
 
 # ------------------ Flask Startup ------------------
 
