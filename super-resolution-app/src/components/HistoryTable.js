@@ -25,25 +25,20 @@ const HistoryTable = () => {
           </tr>
         </thead>
         <tbody>
-          {history.map((topic, idx) => (
-            <tr key={idx}>
-              <td>
-                <a href={topic.imageURL} target="_blank" rel="noreferrer">View Original</a>
-              </td>
-              <td>
-                <a
-                  href={topic.upscaledURL}
-                  download
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ display: 'inline-block', padding: '4px', border: '1px solid blue', color: 'blue' }}
-                >
-                  Download Upscaled
-                </a>
-              </td>
-              <td>{topic.name}</td>
-            </tr>
-          ))}
+          {history.map((topic, idx) => {
+            console.log("🧪 topic:", topic); // <-- Add this line here
+            return (
+              <tr key={idx}>
+                <td>
+                  <a href={topic.imageURL} target="_blank" rel="noreferrer">View Original</a>
+                </td>
+                <td>
+                  <a href={topic.upscaledURL} download target="_blank" rel="noreferrer">Download Upscaled</a>
+                </td>
+                <td>{topic.name}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
