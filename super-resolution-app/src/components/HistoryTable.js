@@ -8,7 +8,7 @@ const HistoryTable = () => {
       .then(res => res.json())
       .then(data => {
         const processed = (data.processed || []).map((item) => {
-          // Some items may have stringified 'name' field with JSON structure
+          // Some items may have stringified JSON in 'name'
           try {
             if (item.name && typeof item.name === 'string' && item.name.startsWith('{')) {
               const parsed = JSON.parse(item.name);
@@ -42,14 +42,26 @@ const HistoryTable = () => {
               <tr key={idx}>
                 <td>
                   {topic.imageURL ? (
-                    <a href={topic.imageURL} target="_blank" rel="noreferrer">View Original</a>
+                    <a
+                      href={topic.imageURL}
+                      target="_blank"
+                      rel="noreferrer"
+                      download
+                    >
+                      Download Original
+                    </a>
                   ) : (
                     <span>N/A</span>
                   )}
                 </td>
                 <td>
                   {topic.upscaledURL ? (
-                    <a href={topic.upscaledURL} target="_blank" rel="noreferrer" download>
+                    <a
+                      href={topic.upscaledURL}
+                      target="_blank"
+                      rel="noreferrer"
+                      download
+                    >
                       Download Upscaled
                     </a>
                   ) : (
