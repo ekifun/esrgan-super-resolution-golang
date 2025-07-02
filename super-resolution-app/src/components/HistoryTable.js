@@ -8,17 +8,24 @@ const HistoryTable = () => {
       .then(res => res.json())
       .then(data => {
         const processed = (data.processed || []).map((item) => {
-          // Some items may have stringified JSON in 'name'
           try {
-            if (item.name && typeof item.name === 'string' && item.name.startsWith('{')) {
-              const parsed = JSON.parse(item.name);
-              return parsed;
+            // Handle case where the entire item is a JSON string
+            if (typeof item === 'string' && item.startsWith('{')) {
+              return JSON.parse(item);
             }
+        
+            // Handle case where `item.name` is a stringified JSON
+            if (item.name && typeof item.name === 'string' && item.name.startsWith('{')) {
+              return JSON.parse(item.name);
+            }
+        
+            // Assume already structured object
+            return item;
           } catch (e) {
-            console.error("❌ Failed to parse topic.name:", e);
+            console.error("❌ Failed to parse topic:", e);
+            return {};
           }
-          return item;
-        });
+        });        
         setHistory(processed);
       })
       .catch(err => console.error('Error fetching history:', err));
