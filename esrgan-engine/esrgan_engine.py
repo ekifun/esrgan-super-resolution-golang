@@ -12,6 +12,7 @@ import logging
 import requests
 from urllib.parse import urlparse
 from flask import send_from_directory
+from db import init_db, mark_task_completed
 
 # ------------------ Configuration ------------------
 
@@ -157,6 +158,8 @@ def process_image(image_path, topic_id):
     except Exception as e:
         logging.error(f"[{topic_id}] ❌ Failed to publish Redis message: {e}")
 
+    mark_task_completed(topic_name, upscaled_url)
+
 # ------------------ Flask Startup ------------------
 
 @app.route('/create_topic', methods=['POST'])
@@ -213,5 +216,6 @@ def serve_upscaled_image(filename):
 
 # Run Flask app
 if __name__ == '__main__':
+    init_db()
     print("🚀 Starting ESRGAN Flask server...")
     app.run(host='0.0.0.0', port=PORT)

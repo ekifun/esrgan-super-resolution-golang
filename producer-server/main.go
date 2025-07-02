@@ -48,6 +48,10 @@ func main() {
 	}
 	log.Println("✅ Connected to Redis")
 
+	// Init SQLite database
+	initDatabase()
+	log.Println("✅ SQLite database initialized")
+
 	// Init Kafka writer
 	kafkaWriter = kafka.NewWriter(kafka.WriterConfig{
 		Brokers:  []string{kafkaBroker},
@@ -62,6 +66,7 @@ func main() {
 	router.HandleFunc("/submit-topic", submitTopicHandler).Methods("POST")
 	router.HandleFunc("/get-status", getStatusHandler).Methods("GET")
 	router.HandleFunc("/healthz", healthCheckHandler).Methods("GET")
+	router.HandleFunc("/get-super-resolution-images", getSuperResolutionImagesHandler).Methods("GET")
 
 	// Serve static files from ./public
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
@@ -82,6 +87,10 @@ func submitTopicHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("📨 Received task: topicName=%s, imageURL=%s\n", payload.TopicName, payload.ImageURL)
+
+	// Insert task into SQLite database
+	insertTask(payload.TopicName, payload.ImageURL)
+	log.Printf("💾 Inserted task into SQLite database: topicName=%s, imageURL=%s\n", payload.TopicName, payload.ImageURL)
 
 	messageBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -160,4 +169,38 @@ func getStatusHandler(w http.ResponseWriter, r *http.Request) {
 		"processing": processingList,
 	})
 }
+
+func getSuperResolutionImagesHandler(w http.ResponseWriter, r *http.Request) {
+    rows, err := db.Query(`
+        SELECT topic_name, image_url, upscaled_url, created_at, completed_at
+        FROM super_resolution_tasks
+        WHERE status = 'completed'
+        ORDER BY completed_at DESC
+        LIMIT 100`)
+    if err != nil {
+        http.Error(w, "Database error", http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    var images []map[string]string
+    for rows.Next() {
+        var name, imageURL, upscaledURL string
+        var createdAt, completedAt sql.NullString
+        err := rows.Scan(&name, &imageURL, &upscaledURL, &createdAt, &completedAt)
+        if err != nil {
+            continue
+        }
+
+        images = append(images, map[string]string{
+            "name":        name,
+            "imageURL":    imageURL,
+            "upscaledURL": upscaledURL,
+        })
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(images)
+}
+
 

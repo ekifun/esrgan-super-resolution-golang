@@ -29,7 +29,12 @@ services:
       - "6379:6379"
     restart: unless-stopped
 
+  volumes:
+  sr-db:
+
   producer:
+    volumes:
+      - sr-db:/app/data
     build: ./producer-server
     ports:
       - "8080:3000"
@@ -43,6 +48,8 @@ services:
     restart: unless-stopped
 
   consumer:
+    volumes:
+      - sr-db:/app/data
     build: ./consumer-server
     ports:
       - "5001:5001"

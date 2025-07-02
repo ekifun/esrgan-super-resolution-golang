@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Dashboard from './components/Dashboard';
-import HistoryTable from './components/HistoryTable';
+import SuperResolutionImagesTable from './components/SuperResolutionImagesTable';
 
 function App() {
   const [view, setView] = useState('dashboard');
@@ -8,11 +8,21 @@ function App() {
   return (
     <div>
       <nav>
-        <button onClick={() => setView('dashboard')}>📈 Dashboard</button>
-        <button onClick={() => setView('history')}>🗂️ History</button>
+      <button
+        onClick={() => setView('dashboard')}
+        style={{ fontWeight: view === 'dashboard' ? 'bold' : 'normal' }}
+      >
+        📈 Dashboard
+      </button>
+      <button
+        onClick={() => setView('superResolutionImages')}
+        style={{ fontWeight: view === 'superResolutionImages' ? 'bold' : 'normal' }}
+      >
+        🗂️ SuperResolutionImages
+      </button>
       </nav>
       <hr />
-      {view === 'dashboard' ? <Dashboard /> : <HistoryTable />}
+      {view === 'dashboard' ? <Dashboard /> : <SuperResolutionImagesTable />}
     </div>
   );
 }
