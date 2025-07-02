@@ -64,8 +64,6 @@ except Exception as e:
 # ------------------ Image Processing ------------------
 def process_image(image_path, topic_id):
     logging.info(f"[{topic_id}] ▶️ Processing image: {image_path}")
-    topics[topic_id] = {"status": "processing", "progress": 0}
-
     topic = topics.get(topic_id, {})
 
     if not topic:
@@ -76,8 +74,9 @@ def process_image(image_path, topic_id):
             redis_data = redis_client.hgetall(redis_topic_key)
             if redis_data:
                 topic = {
-                    "topicName": redis_data.get("topicName".encode(), b"").decode(),
-                    "imageURL": redis_data.get("imageURL".encode(), b"").decode()
+                    "topicName": redis_data.get(b"topicName", b"").decode('utf-8'),
+                    "imageURL": redis_data.get(b"imageURL", b"").decode('utf-8'),
+                    "imagePath": redis_data.get(b"imagePath", b"").decode('utf-8')
                 }
                 logging.info(f"[{topic_id}] 🔁 Fetched topic metadata from Redis: {topic}")
             else:
@@ -87,13 +86,29 @@ def process_image(image_path, topic_id):
 
     topic_name = topic.get("topicName", f"topic_{topic_id}")
     image_url = topic.get("imageURL", "")
+    image_path = topic.get("imagePath", image_path)
+
+    topics[topic_id] = {
+        "status": "processing",
+        "progress": 0,
+        "topicName": topic_name,
+        "imageURL": image_url,
+        "imagePath": image_path
+    }
 
     time.sleep(2)  # Simulated delay
+
+    if not os.path.exists(image_path):
+        logging.error(f"[{topic_id}] ❌ Image path does not exist: {image_path}")
+        topics[topic_id]["status"] = "failed"
+        topics[topic_id]["error"] = "Image path not found."
+        return
 
     img = cv2.imread(image_path, cv2.IMREAD_COLOR)
     if img is None:
         logging.error(f"[{topic_id}] ❌ Failed to read image: {image_path}")
-        topics[topic_id] = {"status": "failed", "error": "Unable to read image."}
+        topics[topic_id]["status"] = "failed"
+        topics[topic_id]["error"] = "Unable to read image."
         return
 
     img = img * 1.0 / 255
@@ -104,7 +119,8 @@ def process_image(image_path, topic_id):
             output = model(img).data.squeeze().float().cpu().clamp_(0, 1).numpy()
     except Exception as e:
         logging.error(f"[{topic_id}] ❌ Model inference error: {e}")
-        topics[topic_id] = {"status": "failed", "error": "Model inference failed"}
+        topics[topic_id]["status"] = "failed"
+        topics[topic_id]["error"] = "Model inference failed"
         return
 
     output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))
@@ -122,7 +138,6 @@ def process_image(image_path, topic_id):
     topics[topic_id]["resultPath"] = output_path
     logging.info(f"[{topic_id}] ✅ Upscaled image saved to: {output_path}")
 
-    # ✅ Save to Redis list
     try:
         redis_value = {
             "name": topic_name,
@@ -135,7 +150,6 @@ def process_image(image_path, topic_id):
     except Exception as e:
         logging.error(f"[{topic_id}] ❌ Failed to write to Redis: {e}")
 
-    # 🔔 Publish to Redis channel for consumer
     try:
         message = json.dumps(redis_value)
         redis_client.publish(PUB_SUB_CHANNEL, message)
