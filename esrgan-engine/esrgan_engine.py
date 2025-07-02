@@ -11,6 +11,7 @@ import time
 import logging
 import requests
 from urllib.parse import urlparse
+from flask import send_from_directory
 
 # ------------------ Configuration ------------------
 
@@ -169,6 +170,10 @@ def close_topic(topic_id):
         del topics[topic_id]
         return jsonify({"message": "Topic closed"}), 200
     return jsonify({"error": "Topic not found"}), 404
+
+@app.route('/results/<path:filename>')
+def serve_upscaled_image(filename):
+    return send_from_directory(RESULT_DIR, filename)
 
 # Run Flask app
 if __name__ == '__main__':
