@@ -101,7 +101,7 @@ def process_image(image_path, topic_id):
     cv2.imwrite(output_path, output.astype(np.uint8))
 
     # Generate accessible URL
-    host = os.getenv('HOST', 'localhost')
+    host = os.getenv('HOST', '13.57.143.121')
     upscaled_url = f"http://{host}:{PORT}/results/{output_filename}"
 
     topics[topic_id]["status"] = "completed"
