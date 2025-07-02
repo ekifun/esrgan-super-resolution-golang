@@ -130,6 +130,7 @@ def process_image(image_path, topic_id):
             "upscaledURL": upscaled_url
         }
         redis_client.rpush(PROCESSED_TOPICS_KEY, json.dumps(redis_value))
+        logging.info(f"redis_value name: [{topic_name}], imageURL: [{image_url}], upscaledURL: [{upscaled_url}]")
         logging.info(f"[{topic_id}] 💾 Appended processed topic to Redis key: {PROCESSED_TOPICS_KEY}")
     except Exception as e:
         logging.error(f"[{topic_id}] ❌ Failed to write to Redis: {e}")
