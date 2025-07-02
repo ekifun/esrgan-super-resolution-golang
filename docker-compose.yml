@@ -29,28 +29,26 @@ services:
       - "6379:6379"
     restart: unless-stopped
 
-  volumes:
-  sr-db:
-
   producer:
+    build: ./producer-server
     volumes:
       - sr-db:/app/data
-    build: ./producer-server
     ports:
       - "8080:3000"
     environment:
       - PORT=3000
       - KAFKA_BROKER=kafka:9092
       - REDIS_HOST=redis:6379
+      - DB_PATH=/app/data/super_resolution.db
     depends_on:
       - kafka
       - redis
     restart: unless-stopped
 
   consumer:
+    build: ./consumer-server
     volumes:
       - sr-db:/app/data
-    build: ./consumer-server
     ports:
       - "5001:5001"
     environment:
@@ -58,6 +56,7 @@ services:
       - KAFKA_BROKER=kafka:9092
       - REDIS_HOST=redis:6379
       - ESRGAN_ENGINE_URL=http://esrgan-engine:7001
+      - DB_PATH=/app/data/super_resolution.db
     depends_on:
       - kafka
       - redis
@@ -66,13 +65,19 @@ services:
 
   esrgan-engine:
     build: ./esrgan-engine
+    volumes:
+      - sr-db:/app/data
     ports:
       - "7001:7001"
     environment:
       - PORT=7001
+      - DB_PATH=/app/data/super_resolution.db
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7001/"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+volumes:
+  sr-db: {}
