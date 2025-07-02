@@ -69,7 +69,21 @@ def process_image(image_path, topic_id):
     topic = topics.get(topic_id, {})
 
     if not topic:
-        logging.warning(f"[{topic_id}] ⚠️ No topic metadata found for result enrichment")
+        logging.warning(f"[{topic_id}] ⚠️ No topic metadata found in memory, trying Redis...")
+        try:
+            topic_name = f"topic_{topic_id}"
+            redis_topic_key = f"topic:{topic_name}"
+            redis_data = redis_client.hgetall(redis_topic_key)
+            if redis_data:
+                topic = {
+                    "topicName": redis_data.get("topicName".encode(), b"").decode(),
+                    "imageURL": redis_data.get("imageURL".encode(), b"").decode()
+                }
+                logging.info(f"[{topic_id}] 🔁 Fetched topic metadata from Redis: {topic}")
+            else:
+                logging.warning(f"[{topic_id}] ⚠️ No topic metadata found in Redis either.")
+        except Exception as e:
+            logging.error(f"[{topic_id}] ❌ Redis fetch error: {e}")
 
     topic_name = topic.get("topicName", f"topic_{topic_id}")
     image_url = topic.get("imageURL", "")

@@ -102,6 +102,18 @@ func submitTopicHandler(w http.ResponseWriter, r *http.Request) {
 		"topicName": payload.TopicName,
 		"imageURL":  payload.ImageURL,
 	})
+
+	// Save topic metadata to Redis
+	topicKey := "topic:" + payload.TopicName
+	topicData := map[string]interface{}{
+		"topicName": payload.TopicName,
+		"imageURL":  payload.ImageURL,
+	}
+	if err := redisClient.HSet(ctx, topicKey, topicData).Err(); err != nil {
+		log.Printf("❌ Redis HSet error: %v", err)
+	} else {
+		log.Printf("💾 Saved topic metadata to Redis key: %s", topicKey)
+	}
 }
 
 func getStatusHandler(w http.ResponseWriter, r *http.Request) {
