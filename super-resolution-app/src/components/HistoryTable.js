@@ -31,7 +31,15 @@ const HistoryTable = () => {
                 <a href={topic.imageURL} target="_blank" rel="noreferrer">View Original</a>
               </td>
               <td>
-                <a href={topic.upscaledURL} download target="_blank" rel="noreferrer">Download Upscaled</a>
+                <a
+                  href={topic.upscaledURL}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: 'inline-block', padding: '4px', border: '1px solid blue', color: 'blue' }}
+                >
+                  Download Upscaled
+                </a>
               </td>
               <td>{topic.name}</td>
             </tr>
