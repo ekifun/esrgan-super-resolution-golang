@@ -27,8 +27,12 @@ const HistoryTable = () => {
         <tbody>
           {history.map((topic, idx) => (
             <tr key={idx}>
-              <td><a href={topic.imageURL} target="_blank" rel="noreferrer">View Original</a></td>
-              <td><a href={topic.upscaledURL} target="_blank" rel="noreferrer">Download Upscaled</a></td>
+              <td>
+                <a href={topic.imageURL} target="_blank" rel="noreferrer">View Original</a>
+              </td>
+              <td>
+                <a href={topic.upscaledURL} download target="_blank" rel="noreferrer">Download Upscaled</a>
+              </td>
               <td>{topic.name}</td>
             </tr>
           ))}
