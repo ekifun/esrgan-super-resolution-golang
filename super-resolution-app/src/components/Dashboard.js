@@ -105,10 +105,10 @@ function Dashboard() {
         <tbody>
           {processedTopics.map((topic, i) => (
             <tr key={i} style={{ borderBottom: '1px solid #ccc' }}>
-              <td style={tdStyle}>{topic.name}</td>
+              <td style={tdStyle}>{topic.name || topic.topic_id || 'N/A'}</td>
               <td style={tdStyle}>
                 {isValidUrl(topic.imageURL) ? (
-                  <a href={topic.imageURL} target="_blank" rel="noreferrer">
+                  <a href={topic.imageURL} target="_blank" rel="noreferrer" download>
                     <img src={topic.imageURL} alt="original" style={imgThumb} />
                   </a>
                 ) : (
@@ -116,9 +116,18 @@ function Dashboard() {
                 )}
               </td>
               <td style={tdStyle}>
-                {isValidUrl(topic.upscaledURL) ? (
-                  <a href={topic.upscaledURL} target="_blank" rel="noreferrer">
-                    <img src={topic.upscaledURL} alt="upscaled" style={imgThumb} />
+                {isValidUrl(topic.upscaledURL || topic.result) ? (
+                  <a
+                    href={topic.upscaledURL || topic.result}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                  >
+                    <img
+                      src={topic.upscaledURL || topic.result}
+                      alt="upscaled"
+                      style={imgThumb}
+                    />
                   </a>
                 ) : (
                   <span style={{ color: 'gray' }}>N/A</span>
