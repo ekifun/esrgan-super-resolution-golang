@@ -20,10 +20,23 @@ function Dashboard() {
     fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
-        setProcessedTopics(data.processed || []);
+        const parsed = (data.processed || []).map((item) => {
+          if (typeof item === 'string') {
+            try {
+              return JSON.parse(item);
+            } catch (e) {
+              console.warn('⚠️ Failed to parse topic:', item);
+              return {};
+            }
+          }
+          return item;
+        });
+
+        setProcessedTopics(parsed);
         setProcessingTopics(data.processing || []);
+
         const map = new Map();
-        (data.processing || []).forEach(t => map.set(t.name, t));
+        (data.processing || []).forEach((t) => map.set(t.name, t));
         topicMapRef.current = map;
       })
       .catch((err) => console.error('Initial fetch error:', err));
@@ -117,17 +130,8 @@ function Dashboard() {
               </td>
               <td style={tdStyle}>
                 {isValidUrl(topic.upscaledURL || topic.result) ? (
-                  <a
-                    href={topic.upscaledURL || topic.result}
-                    target="_blank"
-                    rel="noreferrer"
-                    download
-                  >
-                    <img
-                      src={topic.upscaledURL || topic.result}
-                      alt="upscaled"
-                      style={imgThumb}
-                    />
+                  <a href={topic.upscaledURL || topic.result} target="_blank" rel="noreferrer" download>
+                    <img src={topic.upscaledURL || topic.result} alt="upscaled" style={imgThumb} />
                   </a>
                 ) : (
                   <span style={{ color: 'gray' }}>N/A</span>
