@@ -20,23 +20,18 @@ function Dashboard() {
     fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
-        const parsed = (data.processed || []).map((item) => {
-          if (typeof item === 'string') {
-            try {
-              return JSON.parse(item);
-            } catch (e) {
-              console.warn('⚠️ Failed to parse topic string:', item);
-              return {};
-            }
-          }
-          return item;
-        });
+        // ✅ No need to parse data.processed — already parsed by backend
+        setProcessedTopics(data.processed || []);
 
-        setProcessedTopics(parsed);
-        setProcessingTopics(data.processing || []);
+        // ✅ Convert string progress to number
+        const processing = (data.processing || []).map(t => ({
+          ...t,
+          progress: parseInt(t.progress, 10)
+        }));
+        setProcessingTopics(processing);
 
         const map = new Map();
-        (data.processing || []).forEach((t) => map.set(t.name, t));
+        processing.forEach((t) => map.set(t.name, t));
         topicMapRef.current = map;
       })
       .catch((err) => console.error('Initial fetch error:', err));
@@ -46,14 +41,15 @@ function Dashboard() {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'progress') {
+          const progressVal = parseInt(data.progress, 10);
           setProcessingTopics((prev) => {
             const index = prev.findIndex((t) => t.name === data.topic_id);
             if (index !== -1) {
               const updated = [...prev];
-              updated[index] = { ...updated[index], progress: data.progress };
+              updated[index] = { ...updated[index], progress: progressVal };
               return updated;
             } else {
-              return [...prev, { name: data.topic_id, progress: data.progress }];
+              return [...prev, { name: data.topic_id, progress: progressVal }];
             }
           });
         } else if (data.type === 'complete') {
@@ -63,8 +59,7 @@ function Dashboard() {
             {
               name: data.topic_id,
               imageURL: data.imageURL,
-              upscaledURL: data.upscaledURL,
-              result: data.result,
+              upscaledURL: data.upscaledURL || data.result,
             },
           ]);
         }
