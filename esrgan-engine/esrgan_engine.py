@@ -133,13 +133,23 @@ def process_image(image_path, topic_id):
             output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))
             output = (output * 255.0).round().astype(np.uint8)
 
-            oy0, oy1 = r * output.shape[0], (r + 1) * output.shape[0]
-            ox0, ox1 = c * output.shape[1], (c + 1) * output.shape[1]
-            output_img[oy0:oy1, ox0:ox1] = output
+            oy0, oy1 = r * tile_h * 4, r * tile_h * 4 + output.shape[0]
+            ox0, ox1 = c * tile_w * 4, c * tile_w * 4 + output.shape[1]
+            output_img[oy0:oy1, ox0:ox1] = output[:oy1 - oy0, :ox1 - ox0]
 
             processed_tiles += 1
             progress = int((processed_tiles / total_tiles) * 100)
             topics[topic_id]["progress"] = progress
+
+            progress_payload = json.dumps({
+                "topic": topic_name,
+                "progress": progress
+            })
+            try:
+                redis_client.publish("progress_updates", progress_payload)
+            except Exception as e:
+                logging.error(f"[{topic_id}] ❌ Failed to publish progress: {e}")
+
             logging.info(f"[{topic_id}] 🧩 Tile {processed_tiles}/{total_tiles} done, progress: {progress}%")
 
     output_filename = f"{topic_id}_upscaled.png"
