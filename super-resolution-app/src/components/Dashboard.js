@@ -20,16 +20,19 @@ function Dashboard() {
     fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
-        const processed = (data.processed || []).map((item) => {
-          try {
-            return typeof item === 'string' ? JSON.parse(item) : item;
-          } catch (e) {
-            console.warn('⚠️ Failed to parse:', item);
-            return {};
+        const parsed = (data.processed || []).map((item) => {
+          if (typeof item === 'string') {
+            try {
+              return JSON.parse(item);
+            } catch (e) {
+              console.warn('⚠️ Failed to parse topic string:', item);
+              return {};
+            }
           }
+          return item;
         });
 
-        setProcessedTopics(processed);
+        setProcessedTopics(parsed);
         setProcessingTopics(data.processing || []);
 
         const map = new Map();
@@ -39,19 +42,18 @@ function Dashboard() {
       .catch((err) => console.error('Initial fetch error:', err));
 
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
-
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'progress') {
           setProcessingTopics((prev) => {
-            const updated = [...prev];
-            const idx = updated.findIndex((t) => t.name === data.topic_id);
-            if (idx !== -1) {
-              updated[idx] = { ...updated[idx], progress: data.progress };
+            const index = prev.findIndex((t) => t.name === data.topic_id);
+            if (index !== -1) {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], progress: data.progress };
               return updated;
             } else {
-              return [...updated, { name: data.topic_id, progress: data.progress }];
+              return [...prev, { name: data.topic_id, progress: data.progress }];
             }
           });
         } else if (data.type === 'complete') {
@@ -62,6 +64,7 @@ function Dashboard() {
               name: data.topic_id,
               imageURL: data.imageURL,
               upscaledURL: data.upscaledURL,
+              result: data.result,
             },
           ]);
         }
@@ -128,17 +131,8 @@ function Dashboard() {
               </td>
               <td style={tdStyle}>
                 {isValidUrl(topic.upscaledURL || topic.result) ? (
-                  <a
-                    href={topic.upscaledURL || topic.result}
-                    target="_blank"
-                    rel="noreferrer"
-                    download
-                  >
-                    <img
-                      src={topic.upscaledURL || topic.result}
-                      alt="upscaled"
-                      style={imgThumb}
-                    />
+                  <a href={topic.upscaledURL || topic.result} target="_blank" rel="noreferrer" download>
+                    <img src={topic.upscaledURL || topic.result} alt="upscaled" style={imgThumb} />
                   </a>
                 ) : (
                   <span style={{ color: 'gray' }}>N/A</span>
