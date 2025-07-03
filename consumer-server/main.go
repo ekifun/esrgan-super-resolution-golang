@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/go-redis/redis/v9"
 	"github.com/gorilla/mux"
@@ -23,7 +24,9 @@ var (
 	processedTopicsKey   = "processedTopics"
 	pubSubChannel        = "task_completed"
 	kafkaGroupID         = "transcoding-group"
-	esrganServerURL      = "http://esrgan-engine:7001" // update if needed
+	esrganServerURL      = "http://esrgan-engine:7001"
+	sseClients           = make(map[chan string]bool)
+	sseClientsMutex      sync.Mutex
 )
 
 type TaskPayload struct {
@@ -44,7 +47,6 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
-	// Redis setup
 	redisAddr := getEnv("REDIS_HOST", "redis:6379")
 	redisClient = redis.NewClient(&redis.Options{Addr: redisAddr})
 	pubsubClient = redis.NewClient(&redis.Options{Addr: redisAddr})
@@ -54,15 +56,12 @@ func main() {
 	}
 	log.Println("✅ Connected to Redis")
 
-	// Start Kafka consumer
 	go runConsumer()
-
-	// Subscribe to Pub/Sub
 	go subscribeToTaskCompletion()
 
-	// Serve frontend and status endpoint
 	router := mux.NewRouter()
 	router.HandleFunc("/get-status", getStatusHandler).Methods("GET")
+	router.HandleFunc("/events", sseHandler)
 
 	port := getEnv("PORT", "5001")
 	log.Printf("🚀 Consumer server running on http://localhost:%s\n", port)
@@ -78,7 +77,6 @@ func runConsumer() {
 		MinBytes: 1,
 		MaxBytes: 10e6,
 	})
-
 	defer r.Close()
 	log.Println("📥 Kafka consumer started...")
 
@@ -103,15 +101,12 @@ func processTopic(topic, imageURL string) {
 
 	payload := TaskPayload{TopicName: topic, ImageURL: imageURL}
 	jsonBytes, _ := json.Marshal(payload)
-
-	resp, err := http.Post(fmt.Sprintf("%s/create_topic", esrganServerURL), "application/json", 
-	                       bytes.NewReader(jsonBytes))
+	resp, err := http.Post(fmt.Sprintf("%s/create_topic", esrganServerURL), "application/json", bytes.NewReader(jsonBytes))
 	if err != nil {
 		log.Printf("❌ ESRGAN request failed: %v", err)
 		return
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusCreated {
 		log.Printf("⚠️ ESRGAN rejected task: %s", topic)
 	}
@@ -120,24 +115,21 @@ func processTopic(topic, imageURL string) {
 func subscribeToTaskCompletion() {
 	sub := pubsubClient.Subscribe(ctx, pubSubChannel)
 	log.Printf("🔔 Subscribed to Redis Pub/Sub channel: %s", pubSubChannel)
-
 	for {
 		msg, err := sub.ReceiveMessage(ctx)
 		if err != nil {
 			log.Printf("❌ Pub/Sub error: %v", err)
 			continue
 		}
-
+		broadcastSSE(msg.Payload)
 		var complete TaskCompleteMessage
 		if err := json.Unmarshal([]byte(msg.Payload), &complete); err != nil {
 			log.Printf("❌ Pub/Sub message parse error: %v", err)
 			continue
 		}
-
 		redisClient.HDel(ctx, processingTopicsKey, complete.TopicID)
 		processed, _ := json.Marshal(complete)
 		redisClient.RPush(ctx, processedTopicsKey, processed)
-
 		log.Printf("✅ Task complete: %s, result: %s", complete.TopicID, complete.Result)
 	}
 }
@@ -167,4 +159,48 @@ func getStatusHandler(w http.ResponseWriter, r *http.Request) {
 		"processed":  processed,
 		"processing": processing,
 	})
+}
+
+func sseHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	messageChan := make(chan string)
+	sseClientsMutex.Lock()
+	sseClients[messageChan] = true
+	sseClientsMutex.Unlock()
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	ctx := r.Context()
+	for {
+		select {
+		case msg := <-messageChan:
+			fmt.Fprintf(w, "data: %s\n\n", msg)
+			flusher.Flush()
+		case <-ctx.Done():
+			sseClientsMutex.Lock()
+			delete(sseClients, messageChan)
+			sseClientsMutex.Unlock()
+			return
+		}
+	}
+}
+
+func broadcastSSE(message string) {
+	sseClientsMutex.Lock()
+	defer sseClientsMutex.Unlock()
+	for ch := range sseClients {
+		select {
+		case ch <- message:
+		default:
+			// drop if channel is full
+		}
+	}
 }

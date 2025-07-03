@@ -97,7 +97,7 @@ def process_image(image_path, topic_id):
         "imagePath": image_path
     }
 
-    time.sleep(2)  # Simulated delay
+    time.sleep(2)
 
     if not os.path.exists(image_path):
         logging.error(f"[{topic_id}] ❌ Image path does not exist: {image_path}")
@@ -112,26 +112,40 @@ def process_image(image_path, topic_id):
         topics[topic_id]["error"] = "Unable to read image."
         return
 
-    img = img * 1.0 / 255
-    img = torch.from_numpy(np.transpose(img[:, :, [2, 1, 0]], (2, 0, 1))).float().unsqueeze(0).to(device)
+    rows, cols = 3, 6
+    height, width = img.shape[:2]
+    tile_h, tile_w = height // rows, width // cols
+    output_img = np.zeros((height * 4, width * 4, 3), dtype=np.uint8)
+    processed_tiles = 0
+    total_tiles = rows * cols
 
-    try:
-        with torch.no_grad():
-            output = model(img).data.squeeze().float().cpu().clamp_(0, 1).numpy()
-    except Exception as e:
-        logging.error(f"[{topic_id}] ❌ Model inference error: {e}")
-        topics[topic_id]["status"] = "failed"
-        topics[topic_id]["error"] = "Model inference failed"
-        return
+    for r in range(rows):
+        for c in range(cols):
+            y0, y1 = r * tile_h, (r + 1) * tile_h if r < rows - 1 else height
+            x0, x1 = c * tile_w, (c + 1) * tile_w if c < cols - 1 else width
+            tile = img[y0:y1, x0:x1]
+            tile = tile * 1.0 / 255
+            tile = torch.from_numpy(np.transpose(tile[:, :, [2, 1, 0]], (2, 0, 1))).float().unsqueeze(0).to(device)
 
-    output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))
-    output = (output * 255.0).round()
+            with torch.no_grad():
+                output = model(tile).data.squeeze().float().cpu().clamp_(0, 1).numpy()
+
+            output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))
+            output = (output * 255.0).round().astype(np.uint8)
+
+            oy0, oy1 = r * output.shape[0], (r + 1) * output.shape[0]
+            ox0, ox1 = c * output.shape[1], (c + 1) * output.shape[1]
+            output_img[oy0:oy1, ox0:ox1] = output
+
+            processed_tiles += 1
+            progress = int((processed_tiles / total_tiles) * 100)
+            topics[topic_id]["progress"] = progress
+            logging.info(f"[{topic_id}] 🧩 Tile {processed_tiles}/{total_tiles} done, progress: {progress}%")
 
     output_filename = f"{topic_id}_upscaled.png"
     output_path = os.path.join(RESULT_DIR, output_filename)
-    cv2.imwrite(output_path, output.astype(np.uint8))
+    cv2.imwrite(output_path, output_img)
 
-    # Generate accessible URL
     host = os.getenv('HOST', '13.57.143.121')
     upscaled_url = f"http://{host}:{PORT}/results/{output_filename}"
 

@@ -6,38 +6,64 @@ function Dashboard() {
   const [topicName, setTopicName] = useState('');
   const [imageURL, setImageURL] = useState('');
 
-  const fetchTopics = () => {
+  useEffect(() => {
+    // Initial fetch
     fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
         setProcessedTopics(data.processed || []);
         setProcessingTopics(data.processing || []);
       })
-      .catch((err) => {
-        console.error('Failed to fetch topics:', err);
-      });
-  };
+      .catch((err) => console.error('Initial fetch error:', err));
 
-  useEffect(() => {
-    fetchTopics(); // Initial load
-    const interval = setInterval(fetchTopics, 5000); // Refresh every 5s
-    return () => clearInterval(interval); // Cleanup
+    // Setup SSE connection
+    const eventSource = new EventSource('/events');
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'progress') {
+          setProcessingTopics((prev) => {
+            const updated = prev.map((t) =>
+              t.name === data.topic_id ? { ...t, progress: data.progress } : t
+            );
+            if (!updated.find((t) => t.name === data.topic_id)) {
+              updated.push({ name: data.topic_id, progress: data.progress });
+            }
+            return updated;
+          });
+        } else if (data.type === 'complete') {
+          setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
+          setProcessedTopics((prev) => [...prev, {
+            name: data.topic_id,
+            imageURL: data.imageURL,
+            upscaledURL: data.upscaledURL
+          }]);
+        }
+      } catch (e) {
+        console.error('SSE message parse error:', e);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('SSE error:', err);
+      eventSource.close();
+    };
+
+    return () => eventSource.close();
   }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     fetch('/submit-topic', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ topicName, imageURL }),
     })
       .then((res) => res.json())
-      .then((data) => {
-        console.log('Submitted successfully:', data);
+      .then(() => {
         setTopicName('');
         setImageURL('');
-        fetchTopics(); // Optional immediate refresh
       })
       .catch((err) => console.error('Submission error:', err));
   };
@@ -45,15 +71,24 @@ function Dashboard() {
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
       <h1>Processed Topics</h1>
-      <ul>
-      {processedTopics.map((topic, i) => (
-        <tr key={i}>
-          <td>{topic.name}</td>
-          <td><a href={topic.imageURL} target="_blank" rel="noreferrer">View</a></td>
-          <td><a href={topic.upscaledURL} target="_blank" rel="noreferrer">View</a></td>
-        </tr>
-      ))}
-      </ul>
+      <table>
+        <thead>
+          <tr>
+            <th>Topic Name</th>
+            <th>Original Image</th>
+            <th>Upscaled Image</th>
+          </tr>
+        </thead>
+        <tbody>
+          {processedTopics.map((topic, i) => (
+            <tr key={i}>
+              <td>{topic.name}</td>
+              <td><a href={topic.imageURL} target="_blank" rel="noreferrer">View</a></td>
+              <td><a href={topic.upscaledURL} target="_blank" rel="noreferrer">View</a></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <h1>Processing Topics</h1>
       <ul>
