@@ -17,7 +17,7 @@ function Dashboard() {
       .catch((err) => console.error('Initial fetch error:', err));
 
     // Setup SSE connection
-    const eventSource = new EventSource('/events');
+    const eventSource = new EventSource("http://13.57.143.121:5001/events");
 
     eventSource.onmessage = (event) => {
       try {
