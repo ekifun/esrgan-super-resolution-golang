@@ -16,32 +16,39 @@ function Dashboard() {
       })
       .catch((err) => console.error('Initial fetch error:', err));
 
-    // Setup SSE connection
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+
         if (data.type === 'progress') {
           setProcessingTopics((prev) => {
-            const updated = prev.map((t) =>
-              t.name === data.topic_id ? { ...t, progress: data.progress } : t
-            );
-            if (!updated.find((t) => t.name === data.topic_id)) {
-              updated.push({ name: data.topic_id, progress: data.progress });
+            const index = prev.findIndex((t) => t.name === data.topic);
+            if (index !== -1) {
+              const updated = [...prev];
+              updated[index].progress = data.progress;
+              return updated;
+            } else {
+              return [...prev, { name: data.topic, progress: data.progress }];
             }
-            return updated;
           });
-        } else if (data.type === 'complete') {
-          setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
-          setProcessedTopics((prev) => [...prev, {
-            name: data.topic_id,
-            imageURL: data.imageURL,
-            upscaledURL: data.upscaledURL
-          }]);
         }
+
+        if (data.type === 'complete') {
+          setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic));
+          setProcessedTopics((prev) => [
+            ...prev,
+            {
+              name: data.topic,
+              imageURL: data.imageURL,
+              upscaledURL: data.upscaledURL
+            }
+          ]);
+        }
+
       } catch (e) {
-        console.error('SSE message parse error:', e);
+        console.error('SSE parse error:', e);
       }
     };
 
