@@ -17,7 +17,7 @@ function Dashboard() {
   const topicMapRef = useRef(new Map());
 
   useEffect(() => {
-    fetch('http://13.57.143.121:3000/get-status')
+    fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
         setProcessedTopics(data.processed || []);
@@ -74,7 +74,7 @@ function Dashboard() {
     setProcessingTopics((prev) => [...prev, newTopic]);
     topicMapRef.current.set(trimmedName, newTopic);
 
-    fetch('http://13.57.143.121:3000/submit-topic', {
+    fetch('/submit-topic', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ topicName: trimmedName, imageURL }),
