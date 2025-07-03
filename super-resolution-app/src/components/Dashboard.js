@@ -7,7 +7,6 @@ function Dashboard() {
   const [imageURL, setImageURL] = useState('');
 
   useEffect(() => {
-    // Initial fetch
     fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
@@ -16,8 +15,7 @@ function Dashboard() {
       })
       .catch((err) => console.error('Initial fetch error:', err));
 
-    // Setup SSE
-    const eventSource = new EventSource("http://13.57.143.121:5001/events");
+    const eventSource = new EventSource('http://13.57.143.121:5001/events');
 
     eventSource.onmessage = (event) => {
       try {
@@ -25,8 +23,8 @@ function Dashboard() {
 
         if (data.type === 'progress') {
           setProcessingTopics((prev) => {
-            const exists = prev.find((t) => t.name === data.topic_id);
-            if (exists) {
+            const existing = prev.find((t) => t.name === data.topic_id);
+            if (existing) {
               return prev.map((t) =>
                 t.name === data.topic_id ? { ...t, progress: data.progress } : t
               );
@@ -46,7 +44,7 @@ function Dashboard() {
           ]);
         }
       } catch (e) {
-        console.error('SSE parse error:', e);
+        console.error('SSE message parse error:', e);
       }
     };
 
@@ -61,11 +59,10 @@ function Dashboard() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const trimmedName = topicName.trim();
-    if (!trimmedName) return;
+
+    if (!trimmedName || !imageURL.trim()) return;
 
     const newTopic = { name: trimmedName, progress: 0 };
-
-    // Optimistically add to processing list
     setProcessingTopics((prev) => [...prev, newTopic]);
 
     fetch('/submit-topic', {
@@ -80,8 +77,7 @@ function Dashboard() {
       })
       .catch((err) => {
         console.error('Submission error:', err);
-        // Rollback if submission fails
-        setProcessingTopics((prev) => prev.filter(t => t.name !== trimmedName));
+        setProcessingTopics((prev) => prev.filter((t) => t.name !== trimmedName));
       });
   };
 
@@ -100,8 +96,16 @@ function Dashboard() {
           {processedTopics.map((topic, i) => (
             <tr key={i}>
               <td>{topic.name}</td>
-              <td><a href={topic.imageURL} target="_blank" rel="noreferrer">View</a></td>
-              <td><a href={topic.upscaledURL} target="_blank" rel="noreferrer">View</a></td>
+              <td>
+                <a href={topic.imageURL} target="_blank" rel="noreferrer">
+                  View
+                </a>
+              </td>
+              <td>
+                <a href={topic.upscaledURL} target="_blank" rel="noreferrer">
+                  View
+                </a>
+              </td>
             </tr>
           ))}
         </tbody>
