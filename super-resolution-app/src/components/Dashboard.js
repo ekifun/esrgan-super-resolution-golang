@@ -45,6 +45,7 @@ function Dashboard() {
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+
         if (data.type === 'progress') {
           setProcessingTopics((prev) => {
             const index = prev.findIndex((t) => t.name === data.topic_id);
@@ -58,14 +59,12 @@ function Dashboard() {
           });
         } else if (data.type === 'complete') {
           setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
-          setProcessedTopics((prev) => [
-            ...prev,
-            {
-              name: data.topic_id,
-              imageURL: data.imageURL,
-              upscaledURL: data.upscaledURL,
-            },
-          ]);
+          const completed = {
+            name: data.topic_id,
+            imageURL: data.imageURL,
+            upscaledURL: data.upscaledURL || data.result,
+          };
+          setProcessedTopics((prev) => [...prev, completed]);
         }
       } catch (e) {
         console.error('❌ SSE parse error:', e);
