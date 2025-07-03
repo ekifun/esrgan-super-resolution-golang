@@ -1,15 +1,23 @@
 import React, { useEffect, useState, useRef } from 'react';
 
+function isValidUrl(str) {
+  try {
+    new URL(str);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function Dashboard() {
   const [processedTopics, setProcessedTopics] = useState([]);
   const [processingTopics, setProcessingTopics] = useState([]);
   const [topicName, setTopicName] = useState('');
   const [imageURL, setImageURL] = useState('');
-
   const topicMapRef = useRef(new Map());
 
   useEffect(() => {
-    fetch('/get-status')
+    fetch('http://13.57.143.121:5001/get-status')
       .then((res) => res.json())
       .then((data) => {
         setProcessedTopics(data.processed || []);
@@ -17,7 +25,8 @@ function Dashboard() {
         const map = new Map();
         (data.processing || []).forEach(t => map.set(t.name, t));
         topicMapRef.current = map;
-      });
+      })
+      .catch((err) => console.error('Initial fetch error:', err));
 
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
     eventSource.onmessage = (event) => {
@@ -62,7 +71,6 @@ function Dashboard() {
     e.preventDefault();
     const trimmedName = topicName.trim();
     const newTopic = { name: trimmedName, progress: 0 };
-
     setProcessingTopics((prev) => [...prev, newTopic]);
     topicMapRef.current.set(trimmedName, newTopic);
 
@@ -99,14 +107,22 @@ function Dashboard() {
             <tr key={i} style={{ borderBottom: '1px solid #ccc' }}>
               <td style={tdStyle}>{topic.name}</td>
               <td style={tdStyle}>
-                <a href={topic.imageURL} target="_blank" rel="noreferrer">
-                  <img src={topic.imageURL} alt="original" style={imgThumb} />
-                </a>
+                {isValidUrl(topic.imageURL) ? (
+                  <a href={topic.imageURL} target="_blank" rel="noreferrer">
+                    <img src={topic.imageURL} alt="original" style={imgThumb} />
+                  </a>
+                ) : (
+                  <span style={{ color: 'gray' }}>N/A</span>
+                )}
               </td>
               <td style={tdStyle}>
-                <a href={topic.upscaledURL} target="_blank" rel="noreferrer">
-                  <img src={topic.upscaledURL} alt="upscaled" style={imgThumb} />
-                </a>
+                {isValidUrl(topic.upscaledURL) ? (
+                  <a href={topic.upscaledURL} target="_blank" rel="noreferrer">
+                    <img src={topic.upscaledURL} alt="upscaled" style={imgThumb} />
+                  </a>
+                ) : (
+                  <span style={{ color: 'gray' }}>N/A</span>
+                )}
               </td>
             </tr>
           ))}
