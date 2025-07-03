@@ -117,13 +117,35 @@ function Dashboard() {
       </table>
 
       <h1>Processing Topics</h1>
-      <ul>
+      <div>
         {processingTopics.map((topic, i) => (
-          <li key={i}>
-            {topic.name} - Progress: {topic.progress}%
-          </li>
+          <div key={i} style={{ marginBottom: '16px' }}>
+            <strong>{topic.name}</strong>
+            <div style={{
+              backgroundColor: '#e0e0df',
+              borderRadius: '4px',
+              height: '20px',
+              width: '100%',
+              marginTop: '4px'
+            }}>
+              <div style={{
+                width: `${topic.progress}%`,
+                backgroundColor: topic.progress === 100 ? '#4caf50' : '#2196f3',
+                height: '100%',
+                borderRadius: '4px',
+                textAlign: 'center',
+                color: 'white',
+                lineHeight: '20px',
+                fontSize: '12px',
+                transition: 'width 0.3s ease'
+              }}>
+                {topic.progress}%
+              </div>
+            </div>
+          </div>
         ))}
-      </ul>
+      </div>
+
 
       <h1>Submit New Frame Upscaling Task</h1>
       <form onSubmit={handleSubmit}>
