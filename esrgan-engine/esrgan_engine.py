@@ -64,7 +64,7 @@ except Exception as e:
 
 # ------------------ Image Processing ------------------
 def process_image(image_path, topic_id):
-    logging.info(f"[{topic_id}] ▶️ Processing image: {image_path}")
+    logging.info(f"[{topic_id}] ▶️ Start processing image: {image_path}")
     topic = topics.get(topic_id, {})
 
     if not topic:
@@ -78,7 +78,7 @@ def process_image(image_path, topic_id):
                     "imageURL": redis_data.get(b"imageURL", b"").decode('utf-8'),
                     "imagePath": redis_data.get(b"imagePath", b"").decode('utf-8')
                 }
-                logging.info(f"[{topic_id}] 🔁 Fetched topic metadata from Redis: {topic}")
+                logging.info(f"[{topic_id}] 🔁 Redis topic metadata retrieved: {topic}")
         except Exception as e:
             logging.error(f"[{topic_id}] ❌ Redis fetch error: {e}")
 
@@ -142,12 +142,14 @@ def process_image(image_path, topic_id):
             redis_client.hset("processingTopics", topic_name, progress)
 
             progress_event = {
-                "topic": topic_name,
+                "type": "progress",
+                "topic_id": topic_name,
                 "progress": progress
             }
             redis_client.publish("progress_updates", json.dumps(progress_event))
 
-            logging.info(f"[{topic_id}] 🧩 Tile {processed_tiles}/{total_tiles} done, progress: {progress}%")
+            logging.info(f"[{topic_id}] 🧩 Tile {processed_tiles}/{total_tiles} processed")
+            logging.info(f"[{topic_id}] 🚀 Progress {progress}% published to Redis channel 'progress_updates'")
 
     output_filename = f"{topic_id}_upscaled.png"
     output_path = os.path.join(RESULT_DIR, output_filename)
@@ -158,7 +160,7 @@ def process_image(image_path, topic_id):
 
     topics[topic_id]["status"] = "completed"
     topics[topic_id]["resultPath"] = output_path
-    logging.info(f"[{topic_id}] ✅ Upscaled image saved to: {output_path}")
+    logging.info(f"[{topic_id}] ✅ Final upscaled image saved: {output_path}")
 
     try:
         redis_value = {
@@ -167,18 +169,19 @@ def process_image(image_path, topic_id):
             "upscaledURL": upscaled_url
         }
         redis_client.rpush(PROCESSED_TOPICS_KEY, json.dumps(redis_value))
-        logging.info(f"[{topic_id}] 💾 Appended processed topic to Redis key: {PROCESSED_TOPICS_KEY}")
+        logging.info(f"[{topic_id}] 💾 Topic added to Redis list '{PROCESSED_TOPICS_KEY}'")
     except Exception as e:
-        logging.error(f"[{topic_id}] ❌ Failed to write to Redis: {e}")
+        logging.error(f"[{topic_id}] ❌ Error pushing to Redis list: {e}")
 
     try:
         message = json.dumps(redis_value)
         redis_client.publish(PUB_SUB_CHANNEL, message)
-        logging.info(f"[{topic_id}] 📡 Published task completion to Redis channel '{PUB_SUB_CHANNEL}'")
+        logging.info(f"[{topic_id}] 📡 Completion event published to Redis channel '{PUB_SUB_CHANNEL}'")
     except Exception as e:
-        logging.error(f"[{topic_id}] ❌ Failed to publish Redis message: {e}")
+        logging.error(f"[{topic_id}] ❌ Failed to publish completion to Redis: {e}")
 
     mark_task_completed(topic_name, upscaled_url)
+
 
 # ------------------ Flask Startup ------------------
 
