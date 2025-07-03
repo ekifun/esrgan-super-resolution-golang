@@ -11,23 +11,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/gorilla/mux"
+	"github.com/redis/go-redis/v9"
 	"github.com/segmentio/kafka-go"
 )
 
 var (
-	ctx                  = context.Background()
-	kafkaTopic           = "media-transcoding"
-	redisClient          *redis.Client
-	pubsubClient         *redis.Client
-	processingTopicsKey  = "processingTopics"
-	processedTopicsKey   = "processedTopics"
-	pubSubChannel        = "task_completed"
-	kafkaGroupID         = "transcoding-group"
-	esrganServerURL      = "http://esrgan-engine:7001"
-	sseClients           = make(map[chan string]bool)
-	sseClientsMutex      sync.Mutex
+	ctx                 = context.Background()
+	kafkaTopic          = "media-transcoding"
+	redisClient         *redis.Client
+	pubsubClient        *redis.Client
+	processingTopicsKey = "processingTopics"
+	processedTopicsKey  = "processedTopics"
+	pubSubChannel       = "task_completed"
+	progressChannel     = "progress_updates"
+	kafkaGroupID        = "transcoding-group"
+	esrganServerURL     = "http://esrgan-engine:7001"
+	sseClients          = make(map[chan string]bool)
+	sseClientsMutex     sync.Mutex
 )
 
 type TaskPayload struct {
@@ -59,6 +60,7 @@ func main() {
 
 	go runConsumer()
 	go subscribeToTaskCompletion()
+	go subscribeToProgressUpdates()
 
 	router := mux.NewRouter()
 	router.HandleFunc("/get-status", getStatusHandler).Methods("GET")
@@ -122,7 +124,9 @@ func subscribeToTaskCompletion() {
 			log.Printf("❌ Pub/Sub error: %v", err)
 			continue
 		}
+		log.Printf("✅ Task complete message: %s", msg.Payload)
 		broadcastSSE(msg.Payload)
+
 		var complete TaskCompleteMessage
 		if err := json.Unmarshal([]byte(msg.Payload), &complete); err != nil {
 			log.Printf("❌ Pub/Sub message parse error: %v", err)
@@ -131,7 +135,21 @@ func subscribeToTaskCompletion() {
 		redisClient.HDel(ctx, processingTopicsKey, complete.TopicID)
 		processed, _ := json.Marshal(complete)
 		redisClient.RPush(ctx, processedTopicsKey, processed)
-		log.Printf("✅ Task complete: %s, result: %s", complete.TopicID, complete.Result)
+	}
+}
+
+func subscribeToProgressUpdates() {
+	progressSub := pubsubClient.Subscribe(ctx, progressChannel)
+	log.Printf("🔁 Subscribed to Redis Pub/Sub channel: %s", progressChannel)
+
+	for {
+		msg, err := progressSub.ReceiveMessage(ctx)
+		if err != nil {
+			log.Printf("❌ Progress Pub/Sub error: %v", err)
+			continue
+		}
+		log.Printf("📊 Progress update: %s", msg.Payload)
+		broadcastSSE(msg.Payload)
 	}
 }
 
@@ -161,37 +179,30 @@ func getStatusHandler(w http.ResponseWriter, r *http.Request) {
 		"processing": processing,
 	})
 }
+
 func sseHandler(w http.ResponseWriter, r *http.Request) {
-	// ✅ Allow CORS for your frontend origin
 	w.Header().Set("Access-Control-Allow-Origin", "http://13.57.143.121:3000")
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
-
-	// ✅ SSE-specific headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 
-	// Check if response writer supports flushing
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
 
-	// Register client
 	messageChan := make(chan string)
 	sseClientsMutex.Lock()
 	sseClients[messageChan] = true
 	sseClientsMutex.Unlock()
 
 	log.Println("📡 SSE client connected")
-
-	// Send initial welcome message
 	fmt.Fprintf(w, "data: %s\n\n", `{"type":"info","message":"connected"}`)
 	flusher.Flush()
 
-	// Set up context and heartbeat
 	ctx := r.Context()
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
@@ -214,15 +225,15 @@ func sseHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 func broadcastSSE(message string) {
 	sseClientsMutex.Lock()
 	defer sseClientsMutex.Unlock()
 	for ch := range sseClients {
 		select {
 		case ch <- message:
+			log.Printf("📤 SSE broadcasted: %s", message)
 		default:
-			// drop if channel is full
+			log.Println("⚠️ Dropped SSE message due to full channel")
 		}
 	}
 }
