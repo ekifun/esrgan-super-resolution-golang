@@ -17,7 +17,7 @@ function Dashboard() {
   const topicMapRef = useRef(new Map());
 
   useEffect(() => {
-    fetch('http://13.57.143.121:5001/get-status')
+    fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
         setProcessedTopics(data.processed || []);
