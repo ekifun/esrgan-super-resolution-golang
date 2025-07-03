@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 function Dashboard() {
   const [processedTopics, setProcessedTopics] = useState([]);
@@ -6,31 +6,37 @@ function Dashboard() {
   const [topicName, setTopicName] = useState('');
   const [imageURL, setImageURL] = useState('');
 
+  // For fast lookup by topic name
+  const topicMapRef = useRef(new Map());
+
   useEffect(() => {
     fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
         setProcessedTopics(data.processed || []);
         setProcessingTopics(data.processing || []);
+        const map = new Map();
+        (data.processing || []).forEach(t => map.set(t.name, t));
+        topicMapRef.current = map;
       })
       .catch((err) => console.error('Initial fetch error:', err));
 
-    const eventSource = new EventSource('http://13.57.143.121:5001/events');
+    const eventSource = new EventSource("http://13.57.143.121:5001/events");
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-
         if (data.type === 'progress') {
           setProcessingTopics((prev) => {
-            const existing = prev.find((t) => t.name === data.topic_id);
-            if (existing) {
-              return prev.map((t) =>
-                t.name === data.topic_id ? { ...t, progress: data.progress } : t
-              );
-            } else {
-              return [...prev, { name: data.topic_id, progress: data.progress }];
+            const updated = prev.map((t) =>
+              t.name === data.topic_id ? { ...t, progress: data.progress } : t
+            );
+            const found = updated.some(t => t.name === data.topic_id);
+            if (!found) {
+              updated.push({ name: data.topic_id, progress: data.progress });
             }
+            topicMapRef.current.set(data.topic_id, { name: data.topic_id, progress: data.progress });
+            return updated;
           });
         } else if (data.type === 'complete') {
           setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
@@ -44,7 +50,7 @@ function Dashboard() {
           ]);
         }
       } catch (e) {
-        console.error('SSE message parse error:', e);
+        console.error('SSE parse error:', e);
       }
     };
 
@@ -59,11 +65,10 @@ function Dashboard() {
   const handleSubmit = (e) => {
     e.preventDefault();
     const trimmedName = topicName.trim();
-
-    if (!trimmedName || !imageURL.trim()) return;
-
     const newTopic = { name: trimmedName, progress: 0 };
+
     setProcessingTopics((prev) => [...prev, newTopic]);
+    topicMapRef.current.set(trimmedName, newTopic);
 
     fetch('/submit-topic', {
       method: 'POST',
@@ -78,6 +83,7 @@ function Dashboard() {
       .catch((err) => {
         console.error('Submission error:', err);
         setProcessingTopics((prev) => prev.filter((t) => t.name !== trimmedName));
+        topicMapRef.current.delete(trimmedName);
       });
   };
 
@@ -96,16 +102,8 @@ function Dashboard() {
           {processedTopics.map((topic, i) => (
             <tr key={i}>
               <td>{topic.name}</td>
-              <td>
-                <a href={topic.imageURL} target="_blank" rel="noreferrer">
-                  View
-                </a>
-              </td>
-              <td>
-                <a href={topic.upscaledURL} target="_blank" rel="noreferrer">
-                  View
-                </a>
-              </td>
+              <td><a href={topic.imageURL} target="_blank" rel="noreferrer">View</a></td>
+              <td><a href={topic.upscaledURL} target="_blank" rel="noreferrer">View</a></td>
             </tr>
           ))}
         </tbody>
