@@ -16,19 +16,20 @@ function Dashboard() {
       })
       .catch((err) => console.error('Initial fetch error:', err));
 
+    // Setup SSE
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-    
+
         if (data.type === 'progress') {
           setProcessingTopics((prev) => {
-            const index = prev.findIndex((t) => t.name === data.topic_id);
-            if (index !== -1) {
-              const updated = [...prev];
-              updated[index] = { ...updated[index], progress: data.progress };
-              return updated;
+            const exists = prev.find((t) => t.name === data.topic_id);
+            if (exists) {
+              return prev.map((t) =>
+                t.name === data.topic_id ? { ...t, progress: data.progress } : t
+              );
             } else {
               return [...prev, { name: data.topic_id, progress: data.progress }];
             }
@@ -45,9 +46,9 @@ function Dashboard() {
           ]);
         }
       } catch (e) {
-        console.error('SSE message parse error:', e);
+        console.error('SSE parse error:', e);
       }
-    };    
+    };
 
     eventSource.onerror = (err) => {
       console.error('SSE error:', err);
@@ -59,16 +60,18 @@ function Dashboard() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-  
-    const newTopic = { name: topicName, progress: 0 };
-  
-    // Optimistically add new topic to processingTopics
+    const trimmedName = topicName.trim();
+    if (!trimmedName) return;
+
+    const newTopic = { name: trimmedName, progress: 0 };
+
+    // Optimistically add to processing list
     setProcessingTopics((prev) => [...prev, newTopic]);
-  
+
     fetch('/submit-topic', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topicName, imageURL }),
+      body: JSON.stringify({ topicName: trimmedName, imageURL }),
     })
       .then((res) => res.json())
       .then(() => {
@@ -77,8 +80,8 @@ function Dashboard() {
       })
       .catch((err) => {
         console.error('Submission error:', err);
-        // Optional: rollback optimistic update
-        setProcessingTopics((prev) => prev.filter(t => t.name !== topicName));
+        // Rollback if submission fails
+        setProcessingTopics((prev) => prev.filter(t => t.name !== trimmedName));
       });
   };
 
