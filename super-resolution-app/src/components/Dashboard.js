@@ -21,36 +21,33 @@ function Dashboard() {
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-
+    
         if (data.type === 'progress') {
           setProcessingTopics((prev) => {
-            const index = prev.findIndex((t) => t.name === data.topic);
+            const index = prev.findIndex((t) => t.name === data.topic_id);
             if (index !== -1) {
               const updated = [...prev];
-              updated[index].progress = data.progress;
+              updated[index] = { ...updated[index], progress: data.progress };
               return updated;
             } else {
-              return [...prev, { name: data.topic, progress: data.progress }];
+              return [...prev, { name: data.topic_id, progress: data.progress }];
             }
           });
-        }
-
-        if (data.type === 'complete') {
-          setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic));
+        } else if (data.type === 'complete') {
+          setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
           setProcessedTopics((prev) => [
             ...prev,
             {
-              name: data.topic,
+              name: data.topic_id,
               imageURL: data.imageURL,
-              upscaledURL: data.upscaledURL
-            }
+              upscaledURL: data.upscaledURL,
+            },
           ]);
         }
-
       } catch (e) {
-        console.error('SSE parse error:', e);
+        console.error('SSE message parse error:', e);
       }
-    };
+    };    
 
     eventSource.onerror = (err) => {
       console.error('SSE error:', err);
