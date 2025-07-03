@@ -68,7 +68,6 @@ def process_image(image_path, topic_id):
     topic = topics.get(topic_id, {})
 
     if not topic:
-        logging.warning(f"[{topic_id}] ⚠️ No topic metadata found in memory, trying Redis...")
         try:
             topic_name = f"topic_{topic_id}"
             redis_topic_key = f"topic:{topic_name}"
@@ -80,8 +79,6 @@ def process_image(image_path, topic_id):
                     "imagePath": redis_data.get(b"imagePath", b"").decode('utf-8')
                 }
                 logging.info(f"[{topic_id}] 🔁 Fetched topic metadata from Redis: {topic}")
-            else:
-                logging.warning(f"[{topic_id}] ⚠️ No topic metadata found in Redis either.")
         except Exception as e:
             logging.error(f"[{topic_id}] ❌ Redis fetch error: {e}")
 
@@ -133,22 +130,22 @@ def process_image(image_path, topic_id):
             output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))
             output = (output * 255.0).round().astype(np.uint8)
 
-            oy0, oy1 = r * tile_h * 4, r * tile_h * 4 + output.shape[0]
-            ox0, ox1 = c * tile_w * 4, c * tile_w * 4 + output.shape[1]
-            output_img[oy0:oy1, ox0:ox1] = output[:oy1 - oy0, :ox1 - ox0]
+            oy0 = r * output.shape[0]
+            oy1 = oy0 + output.shape[0]
+            ox0 = c * output.shape[1]
+            ox1 = ox0 + output.shape[1]
+            output_img[oy0:oy1, ox0:ox1] = output
 
             processed_tiles += 1
             progress = int((processed_tiles / total_tiles) * 100)
             topics[topic_id]["progress"] = progress
+            redis_client.hset("processingTopics", topic_name, progress)
 
-            progress_payload = json.dumps({
+            progress_event = {
                 "topic": topic_name,
                 "progress": progress
-            })
-            try:
-                redis_client.publish("progress_updates", progress_payload)
-            except Exception as e:
-                logging.error(f"[{topic_id}] ❌ Failed to publish progress: {e}")
+            }
+            redis_client.publish("progress_updates", json.dumps(progress_event))
 
             logging.info(f"[{topic_id}] 🧩 Tile {processed_tiles}/{total_tiles} done, progress: {progress}%")
 
@@ -170,7 +167,6 @@ def process_image(image_path, topic_id):
             "upscaledURL": upscaled_url
         }
         redis_client.rpush(PROCESSED_TOPICS_KEY, json.dumps(redis_value))
-        logging.info(f"redis_value name: [{topic_name}], imageURL: [{image_url}], upscaledURL: [{upscaled_url}]")
         logging.info(f"[{topic_id}] 💾 Appended processed topic to Redis key: {PROCESSED_TOPICS_KEY}")
     except Exception as e:
         logging.error(f"[{topic_id}] ❌ Failed to write to Redis: {e}")
