@@ -130,9 +130,9 @@ def process_image(image_path, topic_id):
             output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))
             output = (output * 255.0).round().astype(np.uint8)
 
-            oy0 = r * output.shape[0]
+            oy0 = r * tile_h * 4
             oy1 = oy0 + output.shape[0]
-            ox0 = c * output.shape[1]
+            ox0 = c * tile_w * 4
             ox1 = ox0 + output.shape[1]
             output_img[oy0:oy1, ox0:ox1] = output
 
