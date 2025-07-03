@@ -59,6 +59,12 @@ function Dashboard() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+  
+    const newTopic = { name: topicName, progress: 0 };
+  
+    // Optimistically add new topic to processingTopics
+    setProcessingTopics((prev) => [...prev, newTopic]);
+  
     fetch('/submit-topic', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -69,7 +75,11 @@ function Dashboard() {
         setTopicName('');
         setImageURL('');
       })
-      .catch((err) => console.error('Submission error:', err));
+      .catch((err) => {
+        console.error('Submission error:', err);
+        // Optional: rollback optimistic update
+        setProcessingTopics((prev) => prev.filter(t => t.name !== topicName));
+      });
   };
 
   return (
