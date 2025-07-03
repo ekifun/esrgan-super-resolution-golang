@@ -100,6 +100,10 @@ func runConsumer() {
 
 func processTopic(topic, imageURL string) {
 	log.Printf("🎯 Processing topic: %s, imageURL: %s", topic, imageURL)
+
+	// Save imageURL to Redis for later lookup
+	redisClient.Set(ctx, "imageURL:"+topic, imageURL, 0)
+
 	redisClient.HSet(ctx, processingTopicsKey, topic, "0")
 
 	payload := TaskPayload{TopicName: topic, ImageURL: imageURL}
@@ -118,6 +122,7 @@ func processTopic(topic, imageURL string) {
 func subscribeToTaskCompletion() {
 	sub := pubsubClient.Subscribe(ctx, pubSubChannel)
 	log.Printf("🔔 Subscribed to Redis Pub/Sub channel: %s", pubSubChannel)
+
 	for {
 		msg, err := sub.ReceiveMessage(ctx)
 		if err != nil {
@@ -132,9 +137,24 @@ func subscribeToTaskCompletion() {
 			log.Printf("❌ Pub/Sub message parse error: %v", err)
 			continue
 		}
+
 		redisClient.HDel(ctx, processingTopicsKey, complete.TopicID)
-		processed, _ := json.Marshal(complete)
-		redisClient.RPush(ctx, processedTopicsKey, processed)
+
+		// Lookup original image URL
+		imageURL, err := redisClient.Get(ctx, "imageURL:"+complete.TopicID).Result()
+		if err != nil {
+			log.Printf("⚠️ Could not find imageURL for topic %s: %v", complete.TopicID, err)
+			imageURL = ""
+		}
+
+		// Store full metadata
+		metadata := map[string]string{
+			"name":        complete.TopicID,
+			"imageURL":    imageURL,
+			"upscaledURL": complete.Result,
+		}
+		jsonMeta, _ := json.Marshal(metadata)
+		redisClient.RPush(ctx, processedTopicsKey, jsonMeta)
 	}
 }
 
