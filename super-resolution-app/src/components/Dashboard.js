@@ -24,21 +24,27 @@ function Dashboard() {
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
 
     eventSource.onmessage = (event) => {
+      console.log("📩 SSE Event Received:", event.data);  // <-- Add this log
+    
       try {
         const data = JSON.parse(event.data);
+    
         if (data.type === 'progress') {
+          console.log("🟡 Progress Update:", data);  // Log progress-specific data
+    
           setProcessingTopics((prev) => {
-            const updated = prev.map((t) =>
-              t.name === data.topic_id ? { ...t, progress: data.progress } : t
-            );
-            const found = updated.some(t => t.name === data.topic_id);
-            if (!found) {
-              updated.push({ name: data.topic_id, progress: data.progress });
+            const index = prev.findIndex((t) => t.name === data.topic_id);
+            if (index !== -1) {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], progress: data.progress };
+              return updated;
+            } else {
+              return [...prev, { name: data.topic_id, progress: data.progress }];
             }
-            topicMapRef.current.set(data.topic_id, { name: data.topic_id, progress: data.progress });
-            return updated;
           });
         } else if (data.type === 'complete') {
+          console.log("✅ Completion Update:", data);  // Log completion-specific data
+    
           setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
           setProcessedTopics((prev) => [
             ...prev,
@@ -50,9 +56,10 @@ function Dashboard() {
           ]);
         }
       } catch (e) {
-        console.error('SSE parse error:', e);
+        console.error('❌ SSE message parse error:', e);
       }
     };
+    
 
     eventSource.onerror = (err) => {
       console.error('SSE error:', err);
