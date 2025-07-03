@@ -10,7 +10,7 @@ var db *sql.DB
 
 func initDatabase() {
     var err error
-    db, err = sql.Open("sqlite3", "./super_resolution.db")
+    db, err = sql.Open("sqlite3", "/app/data/super_resolution.db")
     if err != nil {
         log.Fatalf("❌ Failed to open SQLite DB: %v", err)
     }
