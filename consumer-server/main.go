@@ -10,7 +10,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/go-redis/redis/v9"
+	"github.com/redis/go-redis/v9"
 	"github.com/gorilla/mux"
 	"github.com/segmentio/kafka-go"
 )
