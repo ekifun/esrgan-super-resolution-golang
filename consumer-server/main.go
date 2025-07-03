@@ -161,19 +161,25 @@ func getStatusHandler(w http.ResponseWriter, r *http.Request) {
 		"processing": processing,
 	})
 }
-
 func sseHandler(w http.ResponseWriter, r *http.Request) {
+	// ✅ Allow CORS for your frontend origin
+	w.Header().Set("Access-Control-Allow-Origin", "http://13.57.143.121:3000")
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+	// ✅ SSE-specific headers
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 
+	// Check if response writer supports flushing
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
 
+	// Register client
 	messageChan := make(chan string)
 	sseClientsMutex.Lock()
 	sseClients[messageChan] = true
@@ -185,6 +191,7 @@ func sseHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "data: %s\n\n", `{"type":"info","message":"connected"}`)
 	flusher.Flush()
 
+	// Set up context and heartbeat
 	ctx := r.Context()
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
@@ -206,6 +213,7 @@ func sseHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
 
 func broadcastSSE(message string) {
 	sseClientsMutex.Lock()
