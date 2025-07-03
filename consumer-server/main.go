@@ -167,24 +167,37 @@ func sseHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 
-	messageChan := make(chan string)
-	sseClientsMutex.Lock()
-	sseClients[messageChan] = true
-	sseClientsMutex.Unlock()
-
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
 
+	messageChan := make(chan string)
+	sseClientsMutex.Lock()
+	sseClients[messageChan] = true
+	sseClientsMutex.Unlock()
+
+	log.Println("📡 SSE client connected")
+
+	// Send initial welcome message
+	fmt.Fprintf(w, "data: %s\n\n", `{"type":"info","message":"connected"}`)
+	flusher.Flush()
+
 	ctx := r.Context()
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case msg := <-messageChan:
 			fmt.Fprintf(w, "data: %s\n\n", msg)
 			flusher.Flush()
+		case <-ticker.C:
+			fmt.Fprintf(w, ": heartbeat\n\n")
+			flusher.Flush()
 		case <-ctx.Done():
+			log.Println("❌ SSE client disconnected")
 			sseClientsMutex.Lock()
 			delete(sseClients, messageChan)
 			sseClientsMutex.Unlock()
