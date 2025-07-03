@@ -6,7 +6,6 @@ function Dashboard() {
   const [topicName, setTopicName] = useState('');
   const [imageURL, setImageURL] = useState('');
 
-  // For fast lookup by topic name
   const topicMapRef = useRef(new Map());
 
   useEffect(() => {
@@ -18,20 +17,13 @@ function Dashboard() {
         const map = new Map();
         (data.processing || []).forEach(t => map.set(t.name, t));
         topicMapRef.current = map;
-      })
-      .catch((err) => console.error('Initial fetch error:', err));
+      });
 
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
-
     eventSource.onmessage = (event) => {
-      console.log("📩 SSE Event Received:", event.data);  // <-- Add this log
-    
       try {
         const data = JSON.parse(event.data);
-    
         if (data.type === 'progress') {
-          console.log("🟡 Progress Update:", data);  // Log progress-specific data
-    
           setProcessingTopics((prev) => {
             const index = prev.findIndex((t) => t.name === data.topic_id);
             if (index !== -1) {
@@ -43,8 +35,6 @@ function Dashboard() {
             }
           });
         } else if (data.type === 'complete') {
-          console.log("✅ Completion Update:", data);  // Log completion-specific data
-    
           setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
           setProcessedTopics((prev) => [
             ...prev,
@@ -56,10 +46,9 @@ function Dashboard() {
           ]);
         }
       } catch (e) {
-        console.error('❌ SSE message parse error:', e);
+        console.error('❌ SSE parse error:', e);
       }
     };
-    
 
     eventSource.onerror = (err) => {
       console.error('SSE error:', err);
@@ -95,50 +84,48 @@ function Dashboard() {
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>Processed Topics</h1>
-      <table>
+    <div style={{ padding: '40px', fontFamily: 'Arial, sans-serif', maxWidth: '900px', margin: 'auto' }}>
+      <h1>🎉 Processed Topics</h1>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px' }}>
         <thead>
           <tr>
-            <th>Topic Name</th>
-            <th>Original Image</th>
-            <th>Upscaled Image</th>
+            <th style={thStyle}>Topic</th>
+            <th style={thStyle}>Original</th>
+            <th style={thStyle}>Upscaled</th>
           </tr>
         </thead>
         <tbody>
           {processedTopics.map((topic, i) => (
-            <tr key={i}>
-              <td>{topic.name}</td>
-              <td><a href={topic.imageURL} target="_blank" rel="noreferrer">View</a></td>
-              <td><a href={topic.upscaledURL} target="_blank" rel="noreferrer">View</a></td>
+            <tr key={i} style={{ borderBottom: '1px solid #ccc' }}>
+              <td style={tdStyle}>{topic.name}</td>
+              <td style={tdStyle}>
+                <a href={topic.imageURL} target="_blank" rel="noreferrer">
+                  <img src={topic.imageURL} alt="original" style={imgThumb} />
+                </a>
+              </td>
+              <td style={tdStyle}>
+                <a href={topic.upscaledURL} target="_blank" rel="noreferrer">
+                  <img src={topic.upscaledURL} alt="upscaled" style={imgThumb} />
+                </a>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <h1>Processing Topics</h1>
-      <div>
+      <h1>🔄 Processing Topics</h1>
+      <div style={{ marginBottom: '40px' }}>
         {processingTopics.map((topic, i) => (
-          <div key={i} style={{ marginBottom: '16px' }}>
+          <div key={i} style={{ marginBottom: '20px' }}>
             <strong>{topic.name}</strong>
-            <div style={{
-              backgroundColor: '#e0e0df',
-              borderRadius: '4px',
-              height: '20px',
-              width: '100%',
-              marginTop: '4px'
-            }}>
-              <div style={{
-                width: `${topic.progress}%`,
-                backgroundColor: topic.progress === 100 ? '#4caf50' : '#2196f3',
-                height: '100%',
-                borderRadius: '4px',
-                textAlign: 'center',
-                color: 'white',
-                lineHeight: '20px',
-                fontSize: '12px',
-                transition: 'width 0.3s ease'
-              }}>
+            <div style={progressWrapper}>
+              <div
+                style={{
+                  ...progressBar,
+                  width: `${topic.progress}%`,
+                  backgroundColor: topic.progress === 100 ? '#4caf50' : '#2196f3',
+                }}
+              >
                 {topic.progress}%
               </div>
             </div>
@@ -146,27 +133,88 @@ function Dashboard() {
         ))}
       </div>
 
-
-      <h1>Submit New Frame Upscaling Task</h1>
-      <form onSubmit={handleSubmit}>
+      <h1>📤 Submit New Task</h1>
+      <form onSubmit={handleSubmit} style={formStyle}>
         <input
           type="text"
           value={topicName}
-          placeholder="Enter video file name (topicName)"
+          placeholder="Enter topic name"
           onChange={(e) => setTopicName(e.target.value)}
+          style={inputStyle}
           required
         />
         <input
           type="url"
           value={imageURL}
-          placeholder="Enter image URL to upscale"
+          placeholder="Enter image URL"
           onChange={(e) => setImageURL(e.target.value)}
+          style={inputStyle}
           required
         />
-        <button type="submit">Submit</button>
+        <button type="submit" style={submitStyle}>Submit</button>
       </form>
     </div>
   );
 }
+
+// Styles
+const thStyle = {
+  textAlign: 'left',
+  padding: '10px',
+  backgroundColor: '#f4f4f4',
+};
+
+const tdStyle = {
+  padding: '10px',
+  verticalAlign: 'middle',
+};
+
+const imgThumb = {
+  width: '120px',
+  borderRadius: '6px',
+  border: '1px solid #ccc',
+};
+
+const progressWrapper = {
+  width: '100%',
+  backgroundColor: '#eee',
+  borderRadius: '5px',
+  overflow: 'hidden',
+  height: '24px',
+  marginTop: '8px',
+};
+
+const progressBar = {
+  height: '100%',
+  color: 'white',
+  textAlign: 'center',
+  lineHeight: '24px',
+  fontSize: '12px',
+  transition: 'width 0.4s ease',
+};
+
+const formStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '12px',
+  maxWidth: '500px',
+};
+
+const inputStyle = {
+  padding: '10px',
+  fontSize: '16px',
+  borderRadius: '4px',
+  border: '1px solid #ccc',
+};
+
+const submitStyle = {
+  padding: '10px 16px',
+  fontSize: '16px',
+  backgroundColor: '#2196f3',
+  color: 'white',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+};
 
 export default Dashboard;
