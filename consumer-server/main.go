@@ -38,8 +38,10 @@ type TaskPayload struct {
 }
 
 type TaskCompleteMessage struct {
-	TopicID string `json:"topic_id"`
-	Result  string `json:"result"`
+	Type       string `json:"type"`
+	TopicID    string `json:"topic_id"`
+	ImageURL   string `json:"imageURL"`
+	UpscaledURL string `json:"upscaledURL"`
 }
 
 func getEnv(key, fallback string) string {
@@ -129,29 +131,31 @@ func subscribeToTaskCompletion() {
 		}
 		log.Printf("✅ Task complete message: %s", msg.Payload)
 
-		var complete TaskCompleteMessage
-		if err := json.Unmarshal([]byte(msg.Payload), &complete); err != nil {
+		var raw map[string]interface{}
+		if err := json.Unmarshal([]byte(msg.Payload), &raw); err != nil {
 			log.Printf("❌ Pub/Sub message parse error: %v", err)
 			continue
 		}
 
-		if complete.TopicID == "" || complete.Result == "" {
-			log.Printf("⚠️ Skipping incomplete completion message: %+v", complete)
+		topicID, _ := raw["topic_id"].(string)
+		result, _ := raw["upscaledURL"].(string)
+		if topicID == "" || result == "" {
+			log.Printf("⚠️ Skipping incomplete completion message: %+v", raw)
 			continue
 		}
 
-		redisClient.HDel(ctx, processingTopicsKey, complete.TopicID)
+		redisClient.HDel(ctx, processingTopicsKey, topicID)
 
-		imageURL, err := redisClient.Get(ctx, "imageURL:"+complete.TopicID).Result()
+		imageURL, err := redisClient.Get(ctx, "imageURL:"+topicID).Result()
 		if err != nil {
-			log.Printf("⚠️ Could not find imageURL for topic %s: %v", complete.TopicID, err)
+			log.Printf("⚠️ Could not find imageURL for topic %s: %v", topicID, err)
 			imageURL = ""
 		}
 
 		metadata := map[string]string{
-			"name":        complete.TopicID,
+			"name":        topicID,
 			"imageURL":    imageURL,
-			"upscaledURL": complete.Result,
+			"upscaledURL": result,
 		}
 
 		jsonMeta, err := json.Marshal(metadata)
@@ -166,12 +170,11 @@ func subscribeToTaskCompletion() {
 			log.Printf("✅ Pushed to processedTopics: %s", jsonMeta)
 		}
 
-		// SSE update
 		completeMessage := map[string]string{
 			"type":        "complete",
-			"topic_id":    complete.TopicID,
+			"topic_id":    topicID,
 			"imageURL":    imageURL,
-			"upscaledURL": complete.Result,
+			"upscaledURL": result,
 		}
 		payload, _ := json.Marshal(completeMessage)
 		log.Printf("📤 Broadcasting SSE: %s", payload)
