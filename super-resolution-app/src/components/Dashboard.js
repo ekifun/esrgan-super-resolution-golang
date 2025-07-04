@@ -20,16 +20,12 @@ function Dashboard() {
     fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
-        // ✅ No need to parse data.processed — already parsed by backend
         setProcessedTopics(data.processed || []);
-
-        // ✅ Convert string progress to number
         const processing = (data.processing || []).map(t => ({
           ...t,
           progress: parseInt(t.progress, 10)
         }));
         setProcessingTopics(processing);
-
         const map = new Map();
         processing.forEach((t) => map.set(t.name, t));
         topicMapRef.current = map;
@@ -114,7 +110,7 @@ function Dashboard() {
         <tbody>
           {processedTopics.map((topic, i) => (
             <tr key={i} style={{ borderBottom: '1px solid #ccc' }}>
-              <td style={tdStyle}>{topic.name || topic.topic_id || 'N/A'}</td>
+              <td style={tdStyle}>{topic.name || 'N/A'}</td>
               <td style={tdStyle}>
                 {isValidUrl(topic.imageURL) ? (
                   <a href={topic.imageURL} target="_blank" rel="noreferrer" download>
@@ -125,9 +121,9 @@ function Dashboard() {
                 )}
               </td>
               <td style={tdStyle}>
-                {isValidUrl(topic.upscaledURL || topic.result) ? (
-                  <a href={topic.upscaledURL || topic.result} target="_blank" rel="noreferrer" download>
-                    <img src={topic.upscaledURL || topic.result} alt="upscaled" style={imgThumb} />
+                {isValidUrl(topic.upscaledURL) ? (
+                  <a href={topic.upscaledURL} target="_blank" rel="noreferrer" download>
+                    <img src={topic.upscaledURL} alt="upscaled" style={imgThumb} />
                   </a>
                 ) : (
                   <span style={{ color: 'gray' }}>N/A</span>
