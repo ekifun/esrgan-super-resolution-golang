@@ -153,13 +153,14 @@ func subscribeToTaskCompletion() {
 			imageURL = ""
 		}
 
-		metadata := map[string]string{
-			"name":        topicID,
+		completeMessage := map[string]string{
+			"type":        "complete",
+			"topic_id":    topicID,
 			"imageURL":    imageURL,
 			"upscaledURL": result,
 		}
 
-		jsonMeta, err := json.Marshal(metadata)
+		jsonMeta, err := json.Marshal(completeMessage)
 		if err != nil {
 			log.Printf("❌ Failed to marshal metadata: %v", err)
 			continue
@@ -171,15 +172,8 @@ func subscribeToTaskCompletion() {
 			log.Printf("✅ Pushed to processedTopics: %s", jsonMeta)
 		}
 
-		completeMessage := map[string]string{
-			"type":        "complete",
-			"topic_id":    topicID,
-			"imageURL":    imageURL,
-			"upscaledURL": result,
-		}
-		payload, _ := json.Marshal(completeMessage)
-		log.Printf("📤 Broadcasting SSE: %s", payload)
-		broadcastSSE(string(payload))
+		log.Printf("📤 Broadcasting SSE: %s", jsonMeta)
+		broadcastSSE(string(jsonMeta))
 	}
 }
 
