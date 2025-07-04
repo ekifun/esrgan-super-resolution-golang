@@ -27,8 +27,9 @@ var (
 	progressChannel     = "progress_updates"
 	kafkaGroupID        = "transcoding-group"
 	esrganServerURL     = "http://esrgan-engine:7001"
-	sseClients          = make(map[chan string]bool)
-	sseClientsMutex     sync.Mutex
+
+	sseClients      = make(map[chan string]bool)
+	sseClientsMutex sync.Mutex
 )
 
 type TaskPayload struct {
@@ -63,7 +64,6 @@ func main() {
 	go subscribeToProgressUpdates()
 
 	router := mux.NewRouter()
-	router.HandleFunc("/get-status", getStatusHandler).Methods("GET")
 	router.HandleFunc("/events", sseHandler)
 
 	port := getEnv("PORT", "5001")
@@ -101,9 +101,7 @@ func runConsumer() {
 func processTopic(topic, imageURL string) {
 	log.Printf("🎯 Processing topic: %s, imageURL: %s", topic, imageURL)
 
-	// Save imageURL to Redis for later lookup
 	redisClient.Set(ctx, "imageURL:"+topic, imageURL, 0)
-
 	redisClient.HSet(ctx, processingTopicsKey, topic, "0")
 
 	payload := TaskPayload{TopicName: topic, ImageURL: imageURL}
@@ -130,7 +128,6 @@ func subscribeToTaskCompletion() {
 			continue
 		}
 		log.Printf("✅ Task complete message: %s", msg.Payload)
-		broadcastSSE(msg.Payload)
 
 		var complete TaskCompleteMessage
 		if err := json.Unmarshal([]byte(msg.Payload), &complete); err != nil {
@@ -138,45 +135,30 @@ func subscribeToTaskCompletion() {
 			continue
 		}
 
-		// Validate required fields
 		if complete.TopicID == "" || complete.Result == "" {
 			log.Printf("⚠️ Skipping incomplete completion message: %+v", complete)
 			continue
 		}
 
-		// Remove from processing hash
 		redisClient.HDel(ctx, processingTopicsKey, complete.TopicID)
 
-		// Get the original imageURL from Redis
 		imageURL, err := redisClient.Get(ctx, "imageURL:"+complete.TopicID).Result()
 		if err != nil {
 			log.Printf("⚠️ Could not find imageURL for topic %s: %v", complete.TopicID, err)
 			imageURL = ""
 		}
 
-		// Create flat metadata (not double-nested)
-		metadata := map[string]string{
-			"name":        complete.TopicID,
-			"imageURL":    imageURL,
-			"upscaledURL": complete.Result,
-		}
-
-		// Marshal to JSON string before pushing to list
-		jsonMeta, err := json.Marshal(metadata)
-		if err != nil {
-			log.Printf("❌ Failed to marshal metadata: %v", err)
-			continue
-		}
-
-		// Push to Redis list: processedTopics
-		if err := redisClient.RPush(ctx, processedTopicsKey, jsonMeta).Err(); err != nil {
-			log.Printf("❌ Failed to push metadata to Redis list: %v", err)
-		} else {
-			log.Printf("✅ Pushed to processedTopics: %s", jsonMeta)
-		}
+		// Build SSE message with imageURL and upscaledURL
+			completeMessage := map[string]string{
+				"type":        "complete",
+				"topic_id":    complete.TopicID,
+				"imageURL":    imageURL,
+				"upscaledURL": complete.Result,
+			}
+			payload, _ := json.Marshal(completeMessage)
+			broadcastSSE(string(payload))
 	}
 }
-
 
 func subscribeToProgressUpdates() {
 	progressSub := pubsubClient.Subscribe(ctx, progressChannel)
@@ -191,33 +173,6 @@ func subscribeToProgressUpdates() {
 		log.Printf("📊 Progress update: %s", msg.Payload)
 		broadcastSSE(msg.Payload)
 	}
-}
-
-func getStatusHandler(w http.ResponseWriter, r *http.Request) {
-	processedRaw, _ := redisClient.LRange(ctx, processedTopicsKey, 0, -1).Result()
-	processingMap, _ := redisClient.HGetAll(ctx, processingTopicsKey).Result()
-
-	var processed []map[string]string
-	for _, item := range processedRaw {
-		var obj map[string]string
-		if err := json.Unmarshal([]byte(item), &obj); err == nil {
-			processed = append(processed, obj)
-		}
-	}
-
-	var processing []map[string]string
-	for topic, progress := range processingMap {
-		processing = append(processing, map[string]string{
-			"name":     topic,
-			"progress": progress,
-		})
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"processed":  processed,
-		"processing": processing,
-	})
 }
 
 func sseHandler(w http.ResponseWriter, r *http.Request) {
