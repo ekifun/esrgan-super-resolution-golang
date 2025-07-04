@@ -148,15 +148,34 @@ func subscribeToTaskCompletion() {
 			imageURL = ""
 		}
 
-		// Build SSE message with imageURL and upscaledURL
-			completeMessage := map[string]string{
-				"type":        "complete",
-				"topic_id":    complete.TopicID,
-				"imageURL":    imageURL,
-				"upscaledURL": complete.Result,
-			}
-			payload, _ := json.Marshal(completeMessage)
-			broadcastSSE(string(payload))
+		metadata := map[string]string{
+			"name":        complete.TopicID,
+			"imageURL":    imageURL,
+			"upscaledURL": complete.Result,
+		}
+
+		jsonMeta, err := json.Marshal(metadata)
+		if err != nil {
+			log.Printf("❌ Failed to marshal metadata: %v", err)
+			continue
+		}
+
+		if err := redisClient.RPush(ctx, processedTopicsKey, jsonMeta).Err(); err != nil {
+			log.Printf("❌ Failed to push metadata to Redis list: %v", err)
+		} else {
+			log.Printf("✅ Pushed to processedTopics: %s", jsonMeta)
+		}
+
+		// SSE update
+		completeMessage := map[string]string{
+			"type":        "complete",
+			"topic_id":    complete.TopicID,
+			"imageURL":    imageURL,
+			"upscaledURL": complete.Result,
+		}
+		payload, _ := json.Marshal(completeMessage)
+		log.Printf("📤 Broadcasting SSE: %s", payload)
+		broadcastSSE(string(payload))
 	}
 }
 
