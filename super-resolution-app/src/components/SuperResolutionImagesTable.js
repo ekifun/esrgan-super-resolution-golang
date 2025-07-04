@@ -25,7 +25,7 @@ const SuperResolutionImagesTable = () => {
         </thead>
         <tbody>
           {superResolutionImages.map((image, idx) => {
-            console.log("🧪 image:", image);
+            //console.log("🧪 image:", image);
             return (
               <tr key={idx}>
                 <td>
