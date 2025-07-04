@@ -38,6 +38,11 @@ function Dashboard() {
             }
           });
         } else if (data.type === 'complete') {
+          console.log("✅ Received complete message with URLs:");
+          console.log("🔗 Original Image URL:", data.imageURL);
+          console.log("🆙 Upscaled Image URL:", data.upscaledURL || data.result);
+          console.log("🔍 Complete message:", data);
+
           setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
           setProcessedTopics((prev) => [
             ...prev,
@@ -110,6 +115,8 @@ function Dashboard() {
             }
 
             console.log("🧪 Parsed Processed Topic:", parsed);
+            console.log("🔗 Rendering Original URL:", parsed.imageURL);
+            console.log("🆙 Rendering Upscaled URL:", parsed.upscaledURL);
 
             return (
               <tr key={i}>
