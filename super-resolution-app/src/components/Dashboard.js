@@ -1,14 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 
-function isValidUrl(str) {
-  try {
-    new URL(str);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
 function Dashboard() {
   const [processedTopics, setProcessedTopics] = useState([]);
   const [processingTopics, setProcessingTopics] = useState([]);
