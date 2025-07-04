@@ -113,16 +113,23 @@ func submitTopicHandler(w http.ResponseWriter, r *http.Request) {
 		"imageURL":  payload.ImageURL,
 	})
 
-	// Save topic metadata to Redis
-	topicKey := "topic:" + payload.TopicName
-	topicData := map[string]interface{}{
-		"topicName": payload.TopicName,
-		"imageURL":  payload.ImageURL,
+	// Save topic metadata to Redis in new flat format
+	meta := map[string]string{
+		"type":     "complete",
+		"topic_id": payload.TopicName,
+		"imageURL": payload.ImageURL,
+		// "upscaledURL" will be added by the ESRGAN service
 	}
-	if err := redisClient.HSet(ctx, topicKey, topicData).Err(); err != nil {
-		log.Printf("❌ Redis HSet error: %v", err)
+	jsonMeta, err := json.Marshal(meta)
+	if err != nil {
+		log.Printf("❌ Failed to marshal topic metadata: %v", err)
 	} else {
-		log.Printf("💾 Saved topic metadata to Redis key: %s", topicKey)
+		key := "topic_metadata:" + payload.TopicName
+		if err := redisClient.Set(ctx, key, jsonMeta, 0).Err(); err != nil {
+			log.Printf("❌ Redis Set error: %v", err)
+		} else {
+			log.Printf("💾 Saved new flat topic metadata to Redis key: %s", key)
+		}
 	}
 }
 

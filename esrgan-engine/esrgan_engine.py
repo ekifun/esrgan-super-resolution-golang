@@ -74,9 +74,9 @@ def process_image(image_path, topic_id):
             redis_data = redis_client.hgetall(redis_topic_key)
             if redis_data:
                 topic = {
-                    "topicName": redis_data.get(b"topicName", b"").decode('utf-8'),
-                    "imageURL": redis_data.get(b"imageURL", b"").decode('utf-8'),
-                    "imagePath": redis_data.get(b"imagePath", b"").decode('utf-8')
+                    "topicName": redis_data.get("topicName", ""),
+                    "imageURL": redis_data.get("imageURL", ""),
+                    "imagePath": redis_data.get("imagePath", "")
                 }
                 logging.info(f"[{topic_id}] 🔁 Redis topic metadata retrieved: {topic}")
         except Exception as e:
@@ -162,33 +162,29 @@ def process_image(image_path, topic_id):
     topics[topic_id]["resultPath"] = output_path
     logging.info(f"[{topic_id}] ✅ Final upscaled image saved: {output_path}")
 
-    try:
-        # Store for backend history UI
-        redis_value = {
-            "name": topic_name,
-            "imageURL": image_url,
-            "upscaledURL": upscaled_url
-        }
-        redis_client.rpush(PROCESSED_TOPICS_KEY, json.dumps(redis_value))
-        logging.info(f"[{topic_id}] 💾 Topic added to Redis list '{PROCESSED_TOPICS_KEY}'")
-    except Exception as e:
-        logging.error(f"[{topic_id}] ❌ Error pushing to Redis list: {e}")
+    # ✅ Standardized complete message (SSE-compliant)
+    complete_message = {
+        "type": "complete",
+        "topic_id": topic_name,
+        "imageURL": image_url,
+        "upscaledURL": upscaled_url
+    }
 
     try:
-        # Flat complete message for SSE consumer
-        complete_message = {
-            "type": "complete",
-            "topic_id": topic_name,
-            "imageURL": image_url,
-            "upscaledURL": upscaled_url
-        }
+        # Save standardized metadata in Redis
+        metadata_key = f"topic_metadata:{topic_name}"
+        redis_client.set(metadata_key, json.dumps(complete_message))
+        logging.info(f"[{topic_id}] 💾 topic_metadata saved to Redis key: {metadata_key}")
+    except Exception as e:
+        logging.error(f"[{topic_id}] ❌ Failed to store topic metadata: {e}")
+
+    try:
         redis_client.publish(PUB_SUB_CHANNEL, json.dumps(complete_message))
         logging.info(f"[{topic_id}] 📡 Completion event published to Redis channel '{PUB_SUB_CHANNEL}'")
     except Exception as e:
         logging.error(f"[{topic_id}] ❌ Failed to publish completion to Redis: {e}")
 
     mark_task_completed(topic_name, upscaled_url)
-
 
 # ------------------ Flask Startup ------------------
 

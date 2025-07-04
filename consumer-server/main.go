@@ -166,12 +166,6 @@ func subscribeToTaskCompletion() {
 			continue
 		}
 
-		if err := redisClient.RPush(ctx, processedTopicsKey, jsonMeta).Err(); err != nil {
-			log.Printf("❌ Failed to push metadata to Redis list: %v", err)
-		} else {
-			log.Printf("✅ Pushed to processedTopics: %s", jsonMeta)
-		}
-
 		log.Printf("📤 Broadcasting SSE: %s", jsonMeta)
 		broadcastSSE(string(jsonMeta))
 	}
