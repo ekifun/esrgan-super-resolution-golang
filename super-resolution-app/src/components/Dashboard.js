@@ -19,12 +19,20 @@ function Dashboard() {
   useEffect(() => {
     // ✅ Updated to fetch from producer-server
     fetch("/get-recent-completed-from-redis")
-      .then(res => res.json())
-      .then(data => {
+    .then(res => res.json())
+    .then(data => {
+      if (Array.isArray(data)) {
         setProcessedTopics(data);
-        console.log("📦 Prefilled processed topics from Redis (via producer):", data);
-      })
-      .catch(err => console.error("❌ Failed to fetch recent processed topics:", err));
+      } else {
+        console.warn("🚨 Unexpected data format for processed topics:", data);
+        setProcessedTopics([]);  // fallback to empty array to prevent .map error
+      }
+      console.log("📦 Prefilled processed topics from Redis (via producer):", data);
+    })
+    .catch(err => {
+      console.error("❌ Failed to fetch recent processed topics:", err);
+      setProcessedTopics([]); // ensure it's always an array on failure
+    });
 
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
     console.log("🌐 SSE connection opened");
@@ -111,7 +119,7 @@ function Dashboard() {
           </tr>
         </thead>
         <tbody>
-          {processedTopics.map((topic, i) => {
+          {(processedTopics || []).map((topic, i) => {
             let parsed = topic;
 
             if (typeof topic === "string") {
