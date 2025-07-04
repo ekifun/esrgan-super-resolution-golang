@@ -94,29 +94,37 @@ function Dashboard() {
           </tr>
         </thead>
         <tbody>
-          {processedTopics.map((topic, i) => (
-            <tr key={i} style={{ borderBottom: '1px solid #ccc' }}>
-              <td style={tdStyle}>{topic.name || 'N/A'}</td>
-              <td style={tdStyle}>
-                {isValidUrl(topic.imageURL) ? (
-                  <a href={topic.imageURL} target="_blank" rel="noreferrer" download>
-                    <img src={topic.imageURL} alt="original" style={imgThumb} />
-                  </a>
-                ) : (
-                  <span style={{ color: 'gray' }}>N/A</span>
-                )}
-              </td>
-              <td style={tdStyle}>
-                {isValidUrl(topic.upscaledURL) ? (
-                  <a href={topic.upscaledURL} target="_blank" rel="noreferrer" download>
-                    <img src={topic.upscaledURL} alt="upscaled" style={imgThumb} />
-                  </a>
-                ) : (
-                  <span style={{ color: 'gray' }}>N/A</span>
-                )}
-              </td>
-            </tr>
-          ))}
+          {processedTopics.map((topic, i) => {
+            let parsed = topic;
+
+            if (typeof topic === "string") {
+              try {
+                parsed = JSON.parse(topic);
+              } catch (e) {
+                console.error("❌ Failed to parse processed topic:", topic, e);
+                return null;
+              }
+            }
+
+            // 🔍 Log each parsed topic
+            console.log("🧪 Parsed Processed Topic:", parsed);
+
+            return (
+              <tr key={i}>
+                <td>{parsed.name}</td>
+                <td>
+                  {parsed.imageURL ? (
+                    <a href={parsed.imageURL} target="_blank" rel="noreferrer">Original</a>
+                  ) : "N/A"}
+                </td>
+                <td>
+                  {parsed.upscaledURL ? (
+                    <a href={parsed.upscaledURL} target="_blank" rel="noreferrer">Upscaled</a>
+                  ) : "N/A"}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
