@@ -18,10 +18,13 @@ function Dashboard() {
 
   useEffect(() => {
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
+    console.log("🌐 SSE connection opened");
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log("📡 SSE received:", data);
+
         if (data.type === 'progress') {
           const progressVal = parseInt(data.progress, 10);
           setProcessingTopics((prev) => {
@@ -106,7 +109,6 @@ function Dashboard() {
               }
             }
 
-            // 🔍 Log each parsed topic
             console.log("🧪 Parsed Processed Topic:", parsed);
 
             return (
@@ -176,17 +178,6 @@ const thStyle = {
   textAlign: 'left',
   padding: '10px',
   backgroundColor: '#f4f4f4',
-};
-
-const tdStyle = {
-  padding: '10px',
-  verticalAlign: 'middle',
-};
-
-const imgThumb = {
-  width: '120px',
-  borderRadius: '6px',
-  border: '1px solid #ccc',
 };
 
 const progressWrapper = {
