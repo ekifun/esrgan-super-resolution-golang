@@ -18,7 +18,7 @@ function Dashboard() {
 
   useEffect(() => {
     // ✅ Updated to fetch from producer-server
-    fetch("http://13.57.143.121:8080/get-recent-completed-from-redis")
+    fetch("/get-recent-completed-from-redis")
       .then(res => res.json())
       .then(data => {
         setProcessedTopics(data);
