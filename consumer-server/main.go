@@ -138,6 +138,11 @@ func subscribeToTaskCompletion() {
 			continue
 		}
 
+		if complete.TopicID == "" || complete.Result == "" {
+			log.Printf("⚠️ Skipping incomplete completion message: %+v", complete)
+			continue
+		}
+
 		redisClient.HDel(ctx, processingTopicsKey, complete.TopicID)
 
 		// Lookup original image URL
@@ -147,16 +152,25 @@ func subscribeToTaskCompletion() {
 			imageURL = ""
 		}
 
-		// Store full metadata
 		metadata := map[string]string{
 			"name":        complete.TopicID,
 			"imageURL":    imageURL,
 			"upscaledURL": complete.Result,
 		}
-		jsonMeta, _ := json.Marshal(metadata)
-		redisClient.RPush(ctx, processedTopicsKey, jsonMeta)
+		jsonMeta, err := json.Marshal(metadata)
+		if err != nil {
+			log.Printf("❌ Failed to marshal metadata: %v", err)
+			continue
+		}
+
+		if err := redisClient.RPush(ctx, processedTopicsKey, jsonMeta).Err(); err != nil {
+			log.Printf("❌ Failed to push metadata to Redis: %v", err)
+		} else {
+			log.Printf("✅ Pushed to processedTopics: %s", jsonMeta)
+		}
 	}
 }
+
 
 func subscribeToProgressUpdates() {
 	progressSub := pubsubClient.Subscribe(ctx, progressChannel)
