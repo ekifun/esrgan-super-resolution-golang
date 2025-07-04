@@ -163,6 +163,7 @@ def process_image(image_path, topic_id):
     logging.info(f"[{topic_id}] ✅ Final upscaled image saved: {output_path}")
 
     try:
+        # Store for backend history UI
         redis_value = {
             "name": topic_name,
             "imageURL": image_url,
@@ -174,8 +175,14 @@ def process_image(image_path, topic_id):
         logging.error(f"[{topic_id}] ❌ Error pushing to Redis list: {e}")
 
     try:
-        message = json.dumps(redis_value)
-        redis_client.publish(PUB_SUB_CHANNEL, message)
+        # Flat complete message for SSE consumer
+        complete_message = {
+            "type": "complete",
+            "topic_id": topic_name,
+            "imageURL": image_url,
+            "upscaledURL": upscaled_url
+        }
+        redis_client.publish(PUB_SUB_CHANNEL, json.dumps(complete_message))
         logging.info(f"[{topic_id}] 📡 Completion event published to Redis channel '{PUB_SUB_CHANNEL}'")
     except Exception as e:
         logging.error(f"[{topic_id}] ❌ Failed to publish completion to Redis: {e}")
