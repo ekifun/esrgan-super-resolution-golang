@@ -17,12 +17,12 @@ function Dashboard() {
   const topicMapRef = useRef(new Map());
 
   useEffect(() => {
-    // Prefill processedTopics from Redis
-    fetch("http://13.57.143.121:5001/get-recent-completed-from-redis")
+    // ✅ Updated to fetch from producer-server
+    fetch("http://13.57.143.121:8080/get-recent-completed-from-redis")
       .then(res => res.json())
       .then(data => {
         setProcessedTopics(data);
-        console.log("📦 Prefilled processed topics from Redis:", data);
+        console.log("📦 Prefilled processed topics from Redis (via producer):", data);
       })
       .catch(err => console.error("❌ Failed to fetch recent processed topics:", err));
 

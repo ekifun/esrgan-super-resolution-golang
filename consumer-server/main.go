@@ -67,7 +67,6 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/events", sseHandler)
-	router.HandleFunc("/get-recent-completed-from-redis", getRecentCompletedFromRedis)
 
 	port := getEnv("PORT", "5001")
 	log.Printf("🚀 Consumer server running on http://localhost:%s\n", port)
@@ -244,31 +243,5 @@ func broadcastSSE(message string) {
 	}
 }
 
-func getRecentCompletedFromRedis(w http.ResponseWriter, r *http.Request) {
-	keys, err := redisClient.Keys(ctx, "topic_metadata:*").Result()
-	if err != nil {
-		http.Error(w, "❌ Failed to list metadata keys from Redis", http.StatusInternalServerError)
-		return
-	}
 
-	var results []map[string]string
-	for _, key := range keys {
-		val, err := redisClient.Get(ctx, key).Result()
-		if err != nil {
-			log.Printf("⚠️ Failed to get key %s: %v", key, err)
-			continue
-		}
-
-		var entry map[string]string
-		if err := json.Unmarshal([]byte(val), &entry); err != nil {
-			log.Printf("⚠️ Failed to parse metadata from key %s: %v", key, err)
-			continue
-		}
-
-		results = append(results, entry)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(results)
-}
 

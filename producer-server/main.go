@@ -68,7 +68,8 @@ func main() {
 	router.HandleFunc("/get-status", getStatusHandler).Methods("GET")
 	router.HandleFunc("/healthz", healthCheckHandler).Methods("GET")
 	router.HandleFunc("/get-super-resolution-images", getSuperResolutionImagesHandler).Methods("GET")
-
+	router.HandleFunc("/get-recent-completed-from-redis", getRecentCompletedFromRedis)
+	
 	// Serve static files from ./public
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public")))
 
@@ -209,6 +210,34 @@ func getSuperResolutionImagesHandler(w http.ResponseWriter, r *http.Request) {
 
     w.Header().Set("Content-Type", "application/json")
     json.NewEncoder(w).Encode(images)
+}
+
+func getRecentCompletedFromRedis(w http.ResponseWriter, r *http.Request) {
+	keys, err := redisClient.Keys(ctx, "topic_metadata:*").Result()
+	if err != nil {
+		http.Error(w, "❌ Failed to list metadata keys from Redis", http.StatusInternalServerError)
+		return
+	}
+
+	var results []map[string]string
+	for _, key := range keys {
+		val, err := redisClient.Get(ctx, key).Result()
+		if err != nil {
+			log.Printf("⚠️ Failed to get key %s: %v", key, err)
+			continue
+		}
+
+		var entry map[string]string
+		if err := json.Unmarshal([]byte(val), &entry); err != nil {
+			log.Printf("⚠️ Failed to parse metadata from key %s: %v", key, err)
+			continue
+		}
+
+		results = append(results, entry)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
 }
 
 
