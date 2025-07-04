@@ -8,14 +8,23 @@ function Dashboard() {
   const topicMapRef = useRef(new Map());
 
   useEffect(() => {
+    // Prefill processedTopics from Redis
+    fetch("http://13.57.143.121:5001/get-recent-completed-from-redis")
+      .then(res => res.json())
+      .then(data => {
+        setProcessedTopics(data);
+        console.log("📦 Prefilled processed topics from Redis:", data);
+      })
+      .catch(err => console.error("❌ Failed to fetch recent processed topics:", err));
+  
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
     console.log("🌐 SSE connection opened");
-
+  
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         console.log("📡 SSE received:", data);
-
+  
         if (data.type === 'progress') {
           const progressVal = parseInt(data.progress, 10);
           setProcessingTopics((prev) => {
@@ -33,7 +42,7 @@ function Dashboard() {
           console.log("🔗 Original Image URL:", data.imageURL);
           console.log("🆙 Upscaled Image URL:", data.upscaledURL || data.result);
           console.log("🔍 Complete message:", data);
-
+  
           setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
           setProcessedTopics((prev) => [
             ...prev,
@@ -48,14 +57,15 @@ function Dashboard() {
         console.error('❌ SSE parse error:', e);
       }
     };
-
+  
     eventSource.onerror = (err) => {
       console.error('SSE error:', err);
       eventSource.close();
     };
-
+  
     return () => eventSource.close();
   }, []);
+  
 
   const handleSubmit = (e) => {
     e.preventDefault();

@@ -38,9 +38,9 @@ type TaskPayload struct {
 }
 
 type TaskCompleteMessage struct {
-	Type       string `json:"type"`
-	TopicID    string `json:"topic_id"`
-	ImageURL   string `json:"imageURL"`
+	Type        string `json:"type"`
+	TopicID     string `json:"topic_id"`
+	ImageURL    string `json:"imageURL"`
 	UpscaledURL string `json:"upscaledURL"`
 }
 
@@ -67,6 +67,7 @@ func main() {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/events", sseHandler)
+	router.HandleFunc("/get-recent-completed-from-redis", getRecentCompletedFromRedis)
 
 	port := getEnv("PORT", "5001")
 	log.Printf("🚀 Consumer server running on http://localhost:%s\n", port)
@@ -253,4 +254,23 @@ func broadcastSSE(message string) {
 			log.Println("⚠️ Dropped SSE message due to full channel")
 		}
 	}
+}
+
+func getRecentCompletedFromRedis(w http.ResponseWriter, r *http.Request) {
+	items, err := redisClient.LRange(ctx, processedTopicsKey, 0, -1).Result()
+	if err != nil {
+		http.Error(w, "❌ Failed to fetch processed topics from Redis", http.StatusInternalServerError)
+		return
+	}
+
+	var results []map[string]string
+	for _, item := range items {
+		var entry map[string]string
+		if err := json.Unmarshal([]byte(item), &entry); err == nil {
+			results = append(results, entry)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(results)
 }
