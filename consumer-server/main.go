@@ -138,33 +138,39 @@ func subscribeToTaskCompletion() {
 			continue
 		}
 
+		// Validate required fields
 		if complete.TopicID == "" || complete.Result == "" {
 			log.Printf("⚠️ Skipping incomplete completion message: %+v", complete)
 			continue
 		}
 
+		// Remove from processing hash
 		redisClient.HDel(ctx, processingTopicsKey, complete.TopicID)
 
-		// Lookup original image URL
+		// Get the original imageURL from Redis
 		imageURL, err := redisClient.Get(ctx, "imageURL:"+complete.TopicID).Result()
 		if err != nil {
 			log.Printf("⚠️ Could not find imageURL for topic %s: %v", complete.TopicID, err)
 			imageURL = ""
 		}
 
+		// Create flat metadata (not double-nested)
 		metadata := map[string]string{
 			"name":        complete.TopicID,
 			"imageURL":    imageURL,
 			"upscaledURL": complete.Result,
 		}
+
+		// Marshal to JSON string before pushing to list
 		jsonMeta, err := json.Marshal(metadata)
 		if err != nil {
 			log.Printf("❌ Failed to marshal metadata: %v", err)
 			continue
 		}
 
+		// Push to Redis list: processedTopics
 		if err := redisClient.RPush(ctx, processedTopicsKey, jsonMeta).Err(); err != nil {
-			log.Printf("❌ Failed to push metadata to Redis: %v", err)
+			log.Printf("❌ Failed to push metadata to Redis list: %v", err)
 		} else {
 			log.Printf("✅ Pushed to processedTopics: %s", jsonMeta)
 		}
