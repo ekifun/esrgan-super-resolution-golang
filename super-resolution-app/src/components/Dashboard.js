@@ -1,5 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 
+function isValidUrl(str) {
+  try {
+    new URL(str);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function Dashboard() {
   const [processedTopics, setProcessedTopics] = useState([]);
   const [processingTopics, setProcessingTopics] = useState([]);
@@ -16,15 +25,15 @@ function Dashboard() {
         console.log("📦 Prefilled processed topics from Redis:", data);
       })
       .catch(err => console.error("❌ Failed to fetch recent processed topics:", err));
-  
+
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
     console.log("🌐 SSE connection opened");
-  
+
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         console.log("📡 SSE received:", data);
-  
+
         if (data.type === 'progress') {
           const progressVal = parseInt(data.progress, 10);
           setProcessingTopics((prev) => {
@@ -42,12 +51,12 @@ function Dashboard() {
           console.log("🔗 Original Image URL:", data.imageURL);
           console.log("🆙 Upscaled Image URL:", data.upscaledURL || data.result);
           console.log("🔍 Complete message:", data);
-  
+
           setProcessingTopics((prev) => prev.filter((t) => t.name !== data.topic_id));
           setProcessedTopics((prev) => [
             ...prev,
             {
-              name: data.topic_id,
+              topic_id: data.topic_id,
               imageURL: data.imageURL,
               upscaledURL: data.upscaledURL || data.result,
             },
@@ -57,15 +66,14 @@ function Dashboard() {
         console.error('❌ SSE parse error:', e);
       }
     };
-  
+
     eventSource.onerror = (err) => {
       console.error('SSE error:', err);
       eventSource.close();
     };
-  
+
     return () => eventSource.close();
   }, []);
-  
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -115,21 +123,26 @@ function Dashboard() {
               }
             }
 
+            const topicId = parsed.topic_id || parsed.name || `unknown-${i}`;
+            const original = parsed.imageURL;
+            const upscaled = parsed.upscaledURL || parsed.result;
+
             console.log("🧪 Parsed Processed Topic:", parsed);
-            console.log("🔗 Rendering Original URL:", parsed.imageURL);
-            console.log("🆙 Rendering Upscaled URL:", parsed.upscaledURL);
+            console.log("🔗 Rendering Topic ID:", topicId);
+            console.log("🖼️ Rendering Original URL:", original);
+            console.log("🆙 Rendering Upscaled URL:", upscaled);
 
             return (
               <tr key={i}>
-                <td>{parsed.name}</td>
+                <td>{topicId}</td>
                 <td>
-                  {parsed.imageURL ? (
-                    <a href={parsed.imageURL} target="_blank" rel="noreferrer">Original</a>
+                  {isValidUrl(original) ? (
+                    <a href={original} target="_blank" rel="noreferrer">Original</a>
                   ) : "N/A"}
                 </td>
                 <td>
-                  {parsed.upscaledURL ? (
-                    <a href={parsed.upscaledURL} target="_blank" rel="noreferrer">Upscaled</a>
+                  {isValidUrl(upscaled) ? (
+                    <a href={upscaled} target="_blank" rel="noreferrer">Upscaled</a>
                   ) : "N/A"}
                 </td>
               </tr>
