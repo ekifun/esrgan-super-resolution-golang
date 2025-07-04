@@ -20,18 +20,32 @@ function Dashboard() {
     fetch('/get-status')
       .then((res) => res.json())
       .then((data) => {
-        setProcessedTopics(data.processed || []);
+        const parsedProcessed = (data.processed || []).map((item) => {
+          if (typeof item === 'string') {
+            try {
+              return JSON.parse(item);
+            } catch (e) {
+              console.error("❌ Failed to parse processed topic:", item);
+              return {};
+            }
+          }
+          return item;
+        });
+  
+        setProcessedTopics(parsedProcessed);
+  
         const processing = (data.processing || []).map(t => ({
           ...t,
           progress: parseInt(t.progress, 10)
         }));
         setProcessingTopics(processing);
+  
         const map = new Map();
         processing.forEach((t) => map.set(t.name, t));
         topicMapRef.current = map;
       })
       .catch((err) => console.error('Initial fetch error:', err));
-
+  
     const eventSource = new EventSource("http://13.57.143.121:5001/events");
     eventSource.onmessage = (event) => {
       try {
@@ -63,15 +77,21 @@ function Dashboard() {
         console.error('❌ SSE parse error:', e);
       }
     };
-
+  
     eventSource.onerror = (err) => {
       console.error('SSE error:', err);
       eventSource.close();
     };
-
+  
     return () => eventSource.close();
-  }, []);
-
+  }, []);  // 👈 Empty dependency array: runs only once
+  
+  useEffect(() => {
+    if (processedTopics.length > 0) {
+      console.log("🧪 topic sample:", processedTopics[0]);
+    }
+  }, [processedTopics]);
+  
   const handleSubmit = (e) => {
     e.preventDefault();
     const trimmedName = topicName.trim();
